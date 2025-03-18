@@ -8,7 +8,6 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using StbImageSharp;
 using System.IO;
-using ImGuiNET; 
 
 namespace OpenTKGame
 {
@@ -18,8 +17,10 @@ namespace OpenTKGame
         int texture, vao3, vbo3, shaderProgram;
         float playerXOffset = 0.06f;
         private int playerVao, playerVbo, playerEbo, playerTexture;
-        ImGuiController _controller;
+        private int backgroundVao,backgroundVbo, backgroundEbo, backgroundTexture;
 
+
+        //player vertices and indices
         float[] playerVertices =
         {
             -0.03f,0.04f,0.0f,0.0f,
@@ -28,6 +29,21 @@ namespace OpenTKGame
             -0.03f,-0.04f,0.0f,1.0f
         };
         uint[] playerIndices = { 0, 1, 2, 2, 3, 0 };
+
+        float[] backgroundVertices =
+        {
+                
+            -1.0f, -1.0f,   0.0f, 0.0f, 
+             1.0f, -1.0f,   1.0f, 0.0f, 
+             1.0f,  1.0f,   1.0f, 1.0f, 
+            -1.0f,  1.0f,   0.0f, 1.0f  
+        };
+        uint[] backgroundIndices =
+        {
+            0, 1, 2,
+            2, 3, 0
+        };
+
         float[] vertices3 =
         {
             -0.5f,-0.5f,0.0f,0.0f,
@@ -36,6 +52,8 @@ namespace OpenTKGame
             -0.5f,0.5f,0.0f,1.0f
         };
         uint[] indices3 = { 0, 1, 2, 2, 3, 0 };
+
+
         private readonly float[] _vertices =
         {
            -0.03f,0.04f,0.0f,
@@ -64,78 +82,79 @@ namespace OpenTKGame
         {
             Console.WriteLine($"OpenGL Version: {GL.GetString(StringName.Version)}");
             base.OnLoad();
-            
 
             GL.ClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-            _vao = GL.GenVertexArray();
-            _vbo = GL.GenBuffer();
-            ebo = GL.GenBuffer();
-            texture = LoadTexture(@"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\shotgun2.png");
 
-            vao3 = GL.GenVertexArray();
-            vbo3 = GL.GenBuffer();
-            ebo2 = GL.GenBuffer();
-            GL.BindVertexArray(_vao);
-            GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo);
-            GL.BufferData(BufferTarget.ArrayBuffer, _vertices.Length * sizeof(float), _vertices, BufferUsageHint.DynamicDraw);
-            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
-            GL.EnableVertexAttribArray(0);
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, ebo);
-            GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Length * sizeof(uint), indices, BufferUsageHint.StaticDraw);
-            GL.BindVertexArray(0);
-
-            _vao2 = GL.GenVertexArray();
-            _vbo2 = GL.GenBuffer();
-            ebo2 = GL.GenBuffer();
-            GL.BindVertexArray(_vao2);
-            GL.BindBuffer(BufferTarget.ArrayBuffer, _vbo2);
-            GL.BufferData(BufferTarget.ArrayBuffer, _vertices2.Length * sizeof(float), _vertices2, BufferUsageHint.StaticDraw);
-            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
-            GL.EnableVertexAttribArray(0);
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, ebo2);
-            GL.BufferData(BufferTarget.ElementArrayBuffer, indices2.Length * sizeof(uint), indices2, BufferUsageHint.StaticDraw);
-            GL.BindVertexArray(0);
-
-            _shaderProgram = CreateShaderProgram("vertex.glsl", "fragment.glsl");
-            GL.BindVertexArray(vao3);
-            GL.BindBuffer(BufferTarget.ArrayBuffer, vbo3);
-            GL.BufferData(BufferTarget.ArrayBuffer, vertices3.Length * sizeof(float), vertices3, BufferUsageHint.StaticDraw);
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, ebo2);
-            GL.BufferData(BufferTarget.ElementArrayBuffer, indices3.Length * sizeof(uint), indices3, BufferUsageHint.StaticDraw);
-            shaderProgram = CreateShader();
-            GL.UseProgram(shaderProgram);
-
-            int posLocation = GL.GetAttribLocation(shaderProgram, "aPosition");
-            GL.EnableVertexAttribArray(posLocation);
-            GL.VertexAttribPointer(posLocation, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), 0);
-            int texLocation = GL.GetAttribLocation(shaderProgram, "aTexCoord");
-
-            GL.EnableVertexAttribArray(texLocation);
-            GL.VertexAttribPointer(texLocation, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), 2 * sizeof(float));
-            GL.Enable(EnableCap.Blend);
-            GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-            GL.ClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-
+            // --- Player Setup ---
             playerVao = GL.GenVertexArray();
             playerVbo = GL.GenBuffer();
             playerEbo = GL.GenBuffer();
-            playerTexture = LoadTexture(@"C:\\Users\\chris\\OneDrive\\Desktop\\OpenTkProject\\ConsoleApp1\\ConsoleApp1\\Textures\\SoliderRotated.png");
+            playerTexture = LoadTexture(@"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\SoliderRotated.png");
 
             GL.BindVertexArray(playerVao);
             GL.BindBuffer(BufferTarget.ArrayBuffer, playerVbo);
             GL.BufferData(BufferTarget.ArrayBuffer, playerVertices.Length * sizeof(float), playerVertices, BufferUsageHint.StaticDraw);
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, playerEbo);
             GL.BufferData(BufferTarget.ElementArrayBuffer, playerIndices.Length * sizeof(uint), playerIndices, BufferUsageHint.StaticDraw);
-            int posLocation2 = GL.GetAttribLocation(shaderProgram, "aPosition");
-            GL.EnableVertexAttribArray(posLocation2);
-            GL.VertexAttribPointer(posLocation2, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), 0);
-            int texLocation2 = GL.GetAttribLocation(shaderProgram, "aTexCoord");
-            GL.EnableVertexAttribArray(texLocation2);
-            GL.VertexAttribPointer(texLocation2, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), 2 * sizeof(float));
-            GL.BindVertexArray(0);
-            _controller = new ImGuiController(ClientSize.X, ClientSize.Y);
 
+            // Attributes for player shader
+            shaderProgram = CreateShader();
+            GL.UseProgram(shaderProgram);
+            int posLocationPlayer = GL.GetAttribLocation(shaderProgram, "aPosition");
+            GL.EnableVertexAttribArray(posLocationPlayer);
+            GL.VertexAttribPointer(posLocationPlayer, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), 0);
+            int texLocationPlayer = GL.GetAttribLocation(shaderProgram, "aTexCoord");
+            GL.EnableVertexAttribArray(texLocationPlayer);
+            GL.VertexAttribPointer(texLocationPlayer, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), 2 * sizeof(float));
+            GL.BindVertexArray(0);
+
+            // --- Shotgun Setup ---
+            vao3 = GL.GenVertexArray();
+            vbo3 = GL.GenBuffer();
+            ebo2 = GL.GenBuffer();
+            texture = LoadTexture(@"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\shotgun2.png");
+
+            GL.BindVertexArray(vao3);
+            GL.BindBuffer(BufferTarget.ArrayBuffer, vbo3);
+            GL.BufferData(BufferTarget.ArrayBuffer, vertices3.Length * sizeof(float), vertices3, BufferUsageHint.StaticDraw);
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, ebo2);
+            GL.BufferData(BufferTarget.ElementArrayBuffer, indices3.Length * sizeof(uint), indices3, BufferUsageHint.StaticDraw);
+
+            // Attributes for shotgun shader (using same shaderProgram)
+            int posLocationShotgun = GL.GetAttribLocation(shaderProgram, "aPosition");
+            GL.EnableVertexAttribArray(posLocationShotgun);
+            GL.VertexAttribPointer(posLocationShotgun, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), 0);
+            int texLocationShotgun = GL.GetAttribLocation(shaderProgram, "aTexCoord");
+            GL.EnableVertexAttribArray(texLocationShotgun);
+            GL.VertexAttribPointer(texLocationShotgun, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), 2 * sizeof(float));
+            GL.BindVertexArray(0);
+
+
+            // --- Background Setup ---
+            backgroundVao = GL.GenVertexArray();
+            backgroundVbo = GL.GenBuffer();
+            backgroundEbo = GL.GenBuffer();
+            backgroundTexture = LoadTexture(@"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\tileable_grass.png");
+
+            GL.BindVertexArray(backgroundVao);
+            GL.BindBuffer(BufferTarget.ArrayBuffer, backgroundVbo);
+            GL.BufferData(BufferTarget.ArrayBuffer, vertices3.Length * sizeof(float), vertices3, BufferUsageHint.StaticDraw);
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, backgroundEbo);
+            GL.BufferData(BufferTarget.ElementArrayBuffer, indices3.Length * sizeof(uint), indices3, BufferUsageHint.StaticDraw);
+
+            // Attributes for shotgun shader (using same shaderProgram)
+            int posLocationBg = GL.GetAttribLocation(shaderProgram, "aPosition");
+            GL.EnableVertexAttribArray(posLocationBg);
+            GL.VertexAttribPointer(posLocationBg, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), 0);
+            int texLocationBg = GL.GetAttribLocation(shaderProgram, "aTexCoord");
+            GL.EnableVertexAttribArray(texLocationBg);
+            GL.VertexAttribPointer(texLocationBg, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), 2 * sizeof(float));
+            GL.BindVertexArray(0);
+
+            GL.Enable(EnableCap.Blend);
+            GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
         }
+
 
         protected override void OnRenderFrame(FrameEventArgs args)
         {
@@ -145,42 +164,43 @@ namespace OpenTKGame
 
             bool blendWasEnabled = GL.IsEnabled(EnableCap.Blend);
             bool depthTestWasEnabled = GL.IsEnabled(EnableCap.DepthTest);
-            int[] viewport = new int[4];
-            GL.GetInteger(GetPName.Viewport, viewport);
-
-            _controller.Update(this, (float)args.Time);
 
             GL.Enable(EnableCap.Blend);
             GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
             GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
 
             GL.UseProgram(shaderProgram);
+            //background
+            GL.BindVertexArray(backgroundVao);
+            GL.ActiveTexture(TextureUnit.Texture0);
+            GL.BindTexture(TextureTarget.Texture2D, backgroundTexture); // background texture
+            GL.DrawElements(PrimitiveType.Triangles, indices3.Length, DrawElementsType.UnsignedInt, 0);
 
+            //player
             GL.BindVertexArray(playerVao);
             GL.ActiveTexture(TextureUnit.Texture0);
             GL.BindTexture(TextureTarget.Texture2D, playerTexture);
             GL.DrawElements(PrimitiveType.Triangles, playerIndices.Length, DrawElementsType.UnsignedInt, 0);
 
-            GL.UseProgram(0);
+            //shotgun
+            GL.BindVertexArray(vao3);
+            GL.ActiveTexture(TextureUnit.Texture0);
+            GL.BindTexture(TextureTarget.Texture2D, texture); // Shotgun texture
+            GL.DrawElements(PrimitiveType.Triangles, indices3.Length, DrawElementsType.UnsignedInt, 0);
+
+            
+
+            //cleanup
             GL.BindVertexArray(0);
             GL.BindTexture(TextureTarget.Texture2D, 0);
-
-            ImGui.DockSpaceOverViewport();
-            ImGui.ShowDemoWindow();
-            ImGui.Begin("Debug");
-            ImGui.Text("Hello, ImGui!");
-            ImGui.Text($"Player VAO: {playerVao}, Texture: {playerTexture}");
-            ImGui.Text($"Viewport: {viewport[0]}, {viewport[1]}, {viewport[2]}, {viewport[3]}");
-            ImGui.End();
-
-            _controller.Render();
-            ImGuiController.CheckGLError("End of frame");
+            GL.UseProgram(0);
 
             if (!blendWasEnabled) GL.Disable(EnableCap.Blend);
             if (depthTestWasEnabled) GL.Enable(EnableCap.DepthTest);
 
             SwapBuffers();
         }
+
 
 
 
@@ -260,10 +280,18 @@ namespace OpenTKGame
             vertices3[9] = gunCenterY + (halfGunWidth) * gunSin + (halfGunHeight) * gunCos;
             vertices3[12] = gunCenterX + (-halfGunWidth) * gunCos - (halfGunHeight) * gunSin;
             vertices3[13] = gunCenterY + (-halfGunWidth) * gunSin + (halfGunHeight) * gunCos;
+
+            //binding of PLAYER vbo
             GL.BindBuffer(BufferTarget.ArrayBuffer, playerVbo);
             GL.BufferSubData(BufferTarget.ArrayBuffer, IntPtr.Zero, playerVertices.Length * sizeof(float), playerVertices);
+
+            //binding of GUN vbo
             GL.BindBuffer(BufferTarget.ArrayBuffer, vbo3);
             GL.BufferSubData(BufferTarget.ArrayBuffer, IntPtr.Zero, vertices3.Length * sizeof(float), vertices3);
+
+            //binding of BACKGROUND vbo
+            GL.BindBuffer(BufferTarget.ArrayBuffer, backgroundVbo);
+            GL.BufferSubData(BufferTarget.ArrayBuffer, IntPtr.Zero, backgroundVertices.Length * sizeof(float), backgroundVertices);
         }
 
         protected override void OnUnload()
@@ -272,26 +300,32 @@ namespace OpenTKGame
             GL.DeleteBuffer(_vbo);
             GL.DeleteVertexArray(_vao);
             GL.DeleteBuffer(ebo);
+
             GL.DeleteBuffer(_vbo2);
             GL.DeleteVertexArray(_vao2);
             GL.DeleteBuffer(ebo2);
+
             GL.DeleteProgram(_shaderProgram);
+
             GL.DeleteBuffer(playerVbo);
             GL.DeleteVertexArray(playerVao);
             GL.DeleteBuffer(playerEbo);
+
+            GL.DeleteBuffer(backgroundVbo);
+            GL.DeleteVertexArray(backgroundVao);
+            GL.DeleteBuffer(backgroundEbo);
+
             GL.DeleteProgram(shaderProgram);
         }
 
         protected override void OnTextInput(TextInputEventArgs e)
         {
             base.OnTextInput(e);
-            _controller.PressChar((char)e.Unicode);
         }
 
         protected override void OnMouseWheel(MouseWheelEventArgs e)
         {
             base.OnMouseWheel(e);
-            _controller.MouseScroll(e.Offset);
         }
 
 
@@ -299,7 +333,6 @@ namespace OpenTKGame
         {
             base.OnResize(e);
             GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
-            _controller.WindowResized(ClientSize.X, ClientSize.Y);
         }
 
         private int CreateShaderProgram(string vertexPath, string fragmentPath)
@@ -344,9 +377,15 @@ namespace OpenTKGame
         {
             if (!File.Exists(path))
             {
-                Console.WriteLine($"ERROR: Texture file not found at {path}");
-                return 0;
+                Console.WriteLine($"ERROR: Texture file not found at {path}. Loading error texture.");
+                path = Path.Combine(Path.GetDirectoryName(path), "error.png");
+                if (!File.Exists(path))
+                {
+                    Console.WriteLine($"ERROR: Error texture file not found at {path}. Cannot load texture.");
+                    return 0;
+                }
             }
+
             StbImage.stbi_set_flip_vertically_on_load(1);
             int id = GL.GenTexture();
             GL.BindTexture(TextureTarget.Texture2D, id);
@@ -366,6 +405,7 @@ namespace OpenTKGame
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
             return id;
         }
+
 
         int CreateShader()
         {
