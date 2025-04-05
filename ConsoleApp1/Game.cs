@@ -14,24 +14,24 @@ namespace OpenTKGame
 {
     public class Game : GameWindow
     {
-        // ------------------------------------------------------
-        // Debug toggle + bounding box offset + scaling
-        // ------------------------------------------------------
+
+
+
         private bool showCollisions = true;
 
-        // Offsets let you nudge the bounding box edges inward or outward individually.
         private float playerCollisionOffsetLeft = 0.00f;
         private float playerCollisionOffsetRight = 0.00f;
-        private float playerCollisionOffsetTop = 0.00f;
+        private float playerCollisionOffsetTop = -0.03f;
         private float playerCollisionOffsetBottom = 0.00f;
 
-        // Scale factors for collision shape
-        private float playerCollisionScaleX = 1.0f;
-        private float playerCollisionScaleY = 1.0f;
+        private float playerCollisionScaleX = 1.5f;
+        private float playerCollisionScaleY = 2.0f;
 
-        // ------------------------------------------------------
-        // Existing fields
-        // ------------------------------------------------------
+
+        int mapWidth = (int)(2.0f / 0.12f);   // 16
+        int mapHeight = (int)(2.0f / 0.15f);  // 13
+
+
         private int _vao, _vbo, ebo, _shaderProgram;
         private int texture, vao3, vbo3, shaderProgram;
         private int playerVao, playerVbo, playerEbo, playerTexture;
@@ -41,6 +41,10 @@ namespace OpenTKGame
         private List<SquareData> squares = new List<SquareData>();
 
         private string boxTextureLoc = @"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\box.png";
+
+        //MAPS
+        private string MainMap = @"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Maps\MainMap.txt";
+
         private SquareData boxSquare;
 
         // Player geometry
@@ -73,8 +77,7 @@ namespace OpenTKGame
         };
         uint[] indices3 = { 0, 1, 2, 2, 3, 0 };
 
-        // Internal array for player's bounding geometry (for movement)
-        // We'll do collision vs squares & screen edges only.
+       
         private readonly float[] _vertices =
         {
            -0.03f,  0.04f,  0.0f,
@@ -82,6 +85,22 @@ namespace OpenTKGame
             0.03f, -0.04f,  0.0f,
            -0.03f, -0.04f,  0.0f
         };
+
+        //values for the map edditor
+        int rows = 12;
+        int cols = 16;
+        float tileWidth = 0.12f;
+        float tileHeight = 0.15f;
+
+        float startX = -0.94f;
+        float startY = -0.93f;
+        string[][] mapArray = new string[12][];
+        string[][] positionArray = new string[12][];
+
+
+
+        List<string> tilePositions = new List<string>();
+
 
         // Debug rendering shader + VAO for bounding boxes
         private int debugShader;
@@ -100,11 +119,11 @@ namespace OpenTKGame
             Console.WriteLine($"OpenGL Version: {GL.GetString(StringName.Version)}");
             GL.ClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
-            // 1) Create + Use main shader
+            //Create + Use main shader
             shaderProgram = CreateShader();
             GL.UseProgram(shaderProgram);
 
-            // 2) Player Setup
+            //Player Setup
             playerVao = GL.GenVertexArray();
             playerVbo = GL.GenBuffer();
             playerEbo = GL.GenBuffer();
@@ -125,7 +144,7 @@ namespace OpenTKGame
             GL.VertexAttribPointer(texLocationPlayer, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), 2 * sizeof(float));
             GL.BindVertexArray(0);
 
-            // 3) Shotgun Setup
+            //Shotgun Setup
             vao3 = GL.GenVertexArray();
             vbo3 = GL.GenBuffer();
             ebo3 = GL.GenBuffer(); // ebo3 instead of ebo2, just to avoid confusion
@@ -146,7 +165,7 @@ namespace OpenTKGame
             GL.VertexAttribPointer(texLocationShotgun, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), 2 * sizeof(float));
             GL.BindVertexArray(0);
 
-            // 4) Background Setup
+            //Background Setup
             backgroundVao = GL.GenVertexArray();
             backgroundVbo = GL.GenBuffer();
             backgroundEbo = GL.GenBuffer();
@@ -167,15 +186,14 @@ namespace OpenTKGame
             GL.VertexAttribPointer(texLocationBg, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), 2 * sizeof(float));
             GL.BindVertexArray(0);
 
-            // 5) Enable alpha blending
+            //Enable alpha blending
             GL.Enable(EnableCap.Blend);
             GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
-            // 6) Create a square lower on screen so it doesn't overlap the player
-            boxSquare = CreateSquare(0.0f, -0.4f, 0.15f, 0.15f, boxTextureLoc);
+            
             squares.Add(boxSquare);
 
-            // 7) Debug rendering shader + VAO
+            //Debug rendering shader + VAO
             debugShader = CreateDebugShader();
             debugVao = GL.GenVertexArray();
             debugVbo = GL.GenBuffer();
@@ -185,9 +203,56 @@ namespace OpenTKGame
             GL.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, 2 * sizeof(float), 0);
             GL.EnableVertexAttribArray(0);
             GL.BindVertexArray(0);
+
+            // Load map layout from file
+            string[] lines = File.ReadAllLines(MainMap);
+
+            for (int y = 0; y < rows; y++)
+            {
+                mapArray[y] = new string[cols];
+                positionArray[y] = new string[cols];
+
+                string[] tokens = lines[y].Split(' ');
+
+                for (int x = 0; x < cols; x++)
+                {
+                    float worldX = startX + x * tileWidth;
+                    float worldY = startY + y * tileHeight;
+
+                    mapArray[y][x] = tokens[x]; 
+                    positionArray[y][x] = $"{worldX:F2},{worldY:F2}";
+                }
+            }
+            CreateMap();
         }
 
-        // We need an int for the shotgun EBO too (previous code used ebo2).
+
+        public void CreateMap()
+        {
+            //Dont remove this (idk how it works but if you move the square the new possition gets collision while the old collision that used to stay there with the "invisible" square is removed)
+            squares.Clear(); 
+
+            for (int i = 0; i < positionArray.Length; i++)
+            {
+                for (int j = 0; j < positionArray[i].Length; j++)
+                {
+                    string[] pos = positionArray[i][j].Split(',');
+                    float x = float.Parse(pos[0]);
+                    float y = float.Parse(pos[1]);
+
+                    if (mapArray[i][j] == "S") 
+                    {
+                        boxSquare = CreateSquare(x, y, 0.12f, 0.15f, boxTextureLoc);
+                        squares.Add(boxSquare); 
+                    }
+                }
+            }
+        }
+
+
+
+
+
         private int ebo3;
 
         protected override void OnRenderFrame(FrameEventArgs args)
@@ -205,13 +270,13 @@ namespace OpenTKGame
             // Use main shader
             GL.UseProgram(shaderProgram);
 
-            // 1) Draw background
+            // Draw background
             GL.BindVertexArray(backgroundVao);
             GL.ActiveTexture(TextureUnit.Texture0);
             GL.BindTexture(TextureTarget.Texture2D, backgroundTexture);
             GL.DrawElements(PrimitiveType.Triangles, backgroundIndices.Length, DrawElementsType.UnsignedInt, 0);
 
-            // 2) Draw squares
+            // Draw squares
             foreach (var sq in squares)
             {
                 GL.BindVertexArray(sq.Vao);
@@ -220,19 +285,19 @@ namespace OpenTKGame
                 GL.DrawElements(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedInt, 0);
             }
 
-            // 3) Draw player
+            // Draw player
             GL.BindVertexArray(playerVao);
             GL.ActiveTexture(TextureUnit.Texture0);
             GL.BindTexture(TextureTarget.Texture2D, playerTexture);
             GL.DrawElements(PrimitiveType.Triangles, playerIndices.Length, DrawElementsType.UnsignedInt, 0);
 
-            // 4) Draw shotgun
+            // Draw shotgun
             GL.BindVertexArray(vao3);
             GL.ActiveTexture(TextureUnit.Texture0);
             GL.BindTexture(TextureTarget.Texture2D, texture);
             GL.DrawElements(PrimitiveType.Triangles, indices3.Length, DrawElementsType.UnsignedInt, 0);
 
-            // 5) Debug bounding boxes if desired
+            // Debug bounding boxes if desired
             if (showCollisions)
             {
                 GL.UseProgram(debugShader);
@@ -271,7 +336,7 @@ namespace OpenTKGame
         {
             base.OnUpdateFrame(args);
 
-            // 1) Player bounding box with offsets + scaling
+            //Player bounding box with offsets + scaling
             (float playerLeft, float playerRight, float playerBottom, float playerTop) = GetPlayerBoundingBox();
 
             KeyboardState k = KeyboardState;
@@ -283,7 +348,6 @@ namespace OpenTKGame
             float step = 0.00005f;
             Vector2 movement = Vector2.Zero;
 
-            // Check if we can move up
             if (k.IsKeyDown(Keys.W))
             {
                 if (CanMove(playerLeft, playerRight, playerTop, playerBottom, 0f, step))
@@ -313,14 +377,14 @@ namespace OpenTKGame
                 }
             }
 
-            // 2) Apply movement to the internal bounding geometry
+            //Apply movement to the internal bounding geometry
             for (int i = 0; i < _vertices.Length; i += 3)
             {
                 _vertices[i] += movement.X;
                 _vertices[i + 1] += movement.Y;
             }
 
-            // 3) Recompute center + rotation
+            //Recompute center + rotation
             float playerCenterX = (_vertices[0] + _vertices[3]) * 0.5f;
             float playerCenterY = (_vertices[1] + _vertices[4]) * 0.5f;
             Vector2 direction = new Vector2(normalizedX - playerCenterX, normalizedY - playerCenterY);
@@ -331,7 +395,6 @@ namespace OpenTKGame
             float cosA = MathF.Cos(playerRotation);
             float sinA = MathF.Sin(playerRotation);
 
-            // Update playerVertices for rendering (rotation)
             // top-left
             playerVertices[0] = playerCenterX + (-playerWidth / 2) * cosA - (playerHeight / 2) * sinA;
             playerVertices[1] = playerCenterY + (-playerWidth / 2) * sinA + (playerHeight / 2) * cosA;
@@ -345,7 +408,7 @@ namespace OpenTKGame
             playerVertices[12] = playerCenterX + (-playerWidth / 2) * cosA - (-playerHeight / 2) * sinA;
             playerVertices[13] = playerCenterY + (-playerWidth / 2) * sinA + (-playerHeight / 2) * cosA;
 
-            // 4) Gun positioning
+            //Gun positioning
             float gunWidthScale = 0.18f;
             float gunHeightScale = 0.18f;
             float gunRotationScale = 1.0f;
@@ -372,7 +435,7 @@ namespace OpenTKGame
             vertices3[12] = gunCenterX + (-halfGunWidth) * gunCos - (halfGunHeight) * gunSin;
             vertices3[13] = gunCenterY + (-halfGunWidth) * gunSin + (halfGunHeight) * gunCos;
 
-            // 5) Update GL buffers
+            // Update GL buffers
             GL.BindBuffer(BufferTarget.ArrayBuffer, playerVbo);
             GL.BufferSubData(BufferTarget.ArrayBuffer, IntPtr.Zero, playerVertices.Length * sizeof(float), playerVertices);
 
@@ -383,9 +446,7 @@ namespace OpenTKGame
             GL.BufferSubData(BufferTarget.ArrayBuffer, IntPtr.Zero, backgroundVertices.Length * sizeof(float), backgroundVertices);
         }
 
-        /// <summary>
-        /// Combines offset + scaling logic for player's collision bounding box.
-        /// </summary>
+        
         private (float left, float right, float bottom, float top) GetPlayerBoundingBox()
         {
             float rawLeft = _vertices[0];
@@ -419,9 +480,7 @@ namespace OpenTKGame
             return (left, right, bottom, top);
         }
 
-        /// <summary>
-        /// Checks collisions vs screen boundaries and squares only.
-        /// </summary>
+        
         private bool CanMove(float playerLeft, float playerRight, float playerTop, float playerBottom, float dx, float dy)
         {
             float newLeft = playerLeft + dx;
@@ -429,11 +488,11 @@ namespace OpenTKGame
             float newBottom = playerBottom + dy;
             float newTop = playerTop + dy;
 
-            // 1) Screen bounds
+            //Screen bounds
             if (newLeft < -1f || newRight > 1f || newBottom < -1f || newTop > 1f)
                 return false;
 
-            // 2) Squares
+            // Squares
             foreach (var sq in squares)
             {
                 float sqLeft = sq.CenterX - sq.HalfW;
@@ -473,7 +532,7 @@ namespace OpenTKGame
         {
             base.OnUnload();
 
-            // Remove references to old buffers you didn't want
+          
             GL.DeleteBuffer(_vbo);
             GL.DeleteVertexArray(_vao);
             GL.DeleteBuffer(ebo);
@@ -490,7 +549,6 @@ namespace OpenTKGame
 
             GL.DeleteProgram(shaderProgram);
 
-            // Also delete squares
             foreach (var sq in squares)
             {
                 GL.DeleteBuffer(sq.Vbo);
