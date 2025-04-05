@@ -41,11 +41,29 @@ namespace OpenTKGame
         private List<SquareData> squares = new List<SquareData>();
 
         private string boxTextureLoc = @"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\box.png";
-
+        private string GreenSquareTextureLoc = @"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\GreenSquare.png";
+        private string RedSquareTextureLoc = @"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\RedSquare.png";
         //MAPS
         private string MainMap = @"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Maps\MainMap.txt";
 
         private SquareData boxSquare;
+
+
+        //Edit mode shit
+        private int highlightedTileX = -1;
+        private int highlightedTileY = -1;
+        private SquareData? highlightSquare = null;
+        private bool editMode = false;
+        private SquareData highlightTemplate;
+        private bool highlightInitialized = false;
+
+        //What object to palce selection in edit mode 
+        private string selectedEditObject = "Box"; // default
+        private bool selectingObject = false;
+        private string[] availableObjects = new string[] { "Box" }; 
+
+
+
 
         // Player geometry
         float[] playerVertices =
@@ -113,6 +131,25 @@ namespace OpenTKGame
             CenterWindow();
         }
 
+        private void UpdateSquareBuffer(ref SquareData square)
+        {
+            float halfW = square.HalfW;
+            float halfH = square.HalfH;
+            float cx = square.CenterX;
+            float cy = square.CenterY;
+
+            float[] updatedVertices =
+            {
+                cx - halfW, cy - halfH,  0.0f, 0.0f,
+                cx + halfW, cy - halfH,  1.0f, 0.0f,
+                cx + halfW, cy + halfH,  1.0f, 1.0f,
+                cx - halfW, cy + halfH,  0.0f, 1.0f
+            };  
+
+            GL.BindBuffer(BufferTarget.ArrayBuffer, square.Vbo);
+            GL.BufferSubData(BufferTarget.ArrayBuffer, IntPtr.Zero, updatedVertices.Length * sizeof(float), updatedVertices);
+        }
+
         protected override void OnLoad()
         {
             base.OnLoad();
@@ -122,6 +159,11 @@ namespace OpenTKGame
             //Create + Use main shader
             shaderProgram = CreateShader();
             GL.UseProgram(shaderProgram);
+
+            //Edit mode square setup
+            highlightTemplate = CreateSquare(0, 0, tileWidth, tileHeight, GreenSquareTextureLoc);
+            highlightInitialized = true;
+    
 
             //Player Setup
             playerVao = GL.GenVertexArray();
@@ -243,7 +285,7 @@ namespace OpenTKGame
                     if (mapArray[i][j] == "S") 
                     {
                         boxSquare = CreateSquare(x, y, 0.12f, 0.15f, boxTextureLoc);
-                        squares.Add(boxSquare); 
+                        squares.Add(boxSquare);
                     }
                 }
             }
@@ -276,6 +318,20 @@ namespace OpenTKGame
             GL.BindTexture(TextureTarget.Texture2D, backgroundTexture);
             GL.DrawElements(PrimitiveType.Triangles, backgroundIndices.Length, DrawElementsType.UnsignedInt, 0);
 
+            //Draw edit mode square
+            if (editMode && highlightSquare.HasValue)
+            {
+                var hs = highlightSquare.Value;
+                GL.BindVertexArray(hs.Vao);
+                GL.ActiveTexture(TextureUnit.Texture0);
+                GL.BindTexture(TextureTarget.Texture2D, hs.Texture);
+                GL.DrawElements(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedInt, 0);
+            }
+            else if (editMode && !highlightSquare.HasValue)
+            {
+                Console.WriteLine("Going into edit mode has failed");
+            }
+
             // Draw squares
             foreach (var sq in squares)
             {
@@ -296,6 +352,8 @@ namespace OpenTKGame
             GL.ActiveTexture(TextureUnit.Texture0);
             GL.BindTexture(TextureTarget.Texture2D, texture);
             GL.DrawElements(PrimitiveType.Triangles, indices3.Length, DrawElementsType.UnsignedInt, 0);
+
+            
 
             // Debug bounding boxes if desired
             if (showCollisions)
@@ -348,92 +406,185 @@ namespace OpenTKGame
             float step = 0.00005f;
             Vector2 movement = Vector2.Zero;
 
-            if (k.IsKeyDown(Keys.W))
+
+            //Edit mode handling
+
+            if (k.IsKeyPressed(Keys.F1))
             {
-                if (CanMove(playerLeft, playerRight, playerTop, playerBottom, 0f, step))
+                editMode = !editMode;
+                Console.WriteLine($"Edit mode: {editMode}");
+
+                if (editMode)
                 {
-                    movement.Y += step;
+                    highlightSquare = highlightTemplate;
                 }
-            }
-            if (k.IsKeyDown(Keys.S))
-            {
-                if (CanMove(playerLeft, playerRight, playerTop, playerBottom, 0f, -step))
+                else
                 {
-                    movement.Y -= step;
-                }
-            }
-            if (k.IsKeyDown(Keys.A))
-            {
-                if (CanMove(playerLeft, playerRight, playerTop, playerBottom, -step, 0f))
-                {
-                    movement.X -= step;
-                }
-            }
-            if (k.IsKeyDown(Keys.D))
-            {
-                if (CanMove(playerLeft, playerRight, playerTop, playerBottom, step, 0f))
-                {
-                    movement.X += step;
+                    highlightSquare = null;
                 }
             }
 
-            //Apply movement to the internal bounding geometry
-            for (int i = 0; i < _vertices.Length; i += 3)
+            if(k.IsKeyPressed (Keys.F9))
             {
-                _vertices[i] += movement.X;
-                _vertices[i + 1] += movement.Y;
+                SaveMap();
             }
 
-            //Recompute center + rotation
-            float playerCenterX = (_vertices[0] + _vertices[3]) * 0.5f;
-            float playerCenterY = (_vertices[1] + _vertices[4]) * 0.5f;
-            Vector2 direction = new Vector2(normalizedX - playerCenterX, normalizedY - playerCenterY);
-            float playerRotation = MathF.Atan2(direction.Y, direction.X);
 
-            float playerWidth = 0.20f;
-            float playerHeight = 0.20f;
-            float cosA = MathF.Cos(playerRotation);
-            float sinA = MathF.Sin(playerRotation);
+            if (editMode)
+            {
+                highlightedTileX = (int)((normalizedX - startX + tileWidth * 0.5f) / tileWidth);
+                highlightedTileY = (int)((normalizedY - startY + tileHeight * 0.5f) / tileHeight);
 
-            // top-left
-            playerVertices[0] = playerCenterX + (-playerWidth / 2) * cosA - (playerHeight / 2) * sinA;
-            playerVertices[1] = playerCenterY + (-playerWidth / 2) * sinA + (playerHeight / 2) * cosA;
-            // top-right
-            playerVertices[4] = playerCenterX + (playerWidth / 2) * cosA - (playerHeight / 2) * sinA;
-            playerVertices[5] = playerCenterY + (playerWidth / 2) * sinA + (playerHeight / 2) * cosA;
-            // bottom-right
-            playerVertices[8] = playerCenterX + (playerWidth / 2) * cosA - (-playerHeight / 2) * sinA;
-            playerVertices[9] = playerCenterY + (playerWidth / 2) * sinA + (-playerHeight / 2) * cosA;
-            // bottom-left
-            playerVertices[12] = playerCenterX + (-playerWidth / 2) * cosA - (-playerHeight / 2) * sinA;
-            playerVertices[13] = playerCenterY + (-playerWidth / 2) * sinA + (-playerHeight / 2) * cosA;
 
-            //Gun positioning
-            float gunWidthScale = 0.18f;
-            float gunHeightScale = 0.18f;
-            float gunRotationScale = 1.0f;
-            float gunXOffset = 0.13f;
-            float gunYOffset = 0.0f;
-            float halfGunWidth = 0.5f * gunWidthScale;
-            float halfGunHeight = 0.5f * gunHeightScale;
-            float gunOffsetX = gunXOffset * cosA - gunYOffset * sinA;
-            float gunOffsetY = gunXOffset * sinA + gunYOffset * cosA;
-            float gunCenterX = playerCenterX + gunOffsetX;
-            float gunCenterY = playerCenterY + gunOffsetY;
-            float gunCos = MathF.Cos(playerRotation * gunRotationScale);
-            float gunSin = MathF.Sin(playerRotation * gunRotationScale);
+                if (highlightInitialized && highlightedTileX >= 0 && highlightedTileX < cols && highlightedTileY >= 0 && highlightedTileY < rows)
+                {
+                    string[] pos = positionArray[highlightedTileY][highlightedTileX].Split(',');
+                    float hx = float.Parse(pos[0]);
+                    float hy = float.Parse(pos[1]);
 
-            vertices3[0] = gunCenterX + (-halfGunWidth) * gunCos - (-halfGunHeight) * gunSin;
-            vertices3[1] = gunCenterY + (-halfGunWidth) * gunSin + (-halfGunHeight) * gunCos;
+                    highlightTemplate.CenterX = hx;
+                    highlightTemplate.CenterY = hy;
+                    UpdateSquareBuffer(ref highlightTemplate);
+                }
 
-            vertices3[4] = gunCenterX + (halfGunWidth) * gunCos - (-halfGunHeight) * gunSin;
-            vertices3[5] = gunCenterY + (halfGunWidth) * gunSin + (-halfGunHeight) * gunCos;
+                // Right click = select block to place
+                if (MouseState.IsButtonPressed(MouseButton.Right))
+                {
+                    selectingObject = true;
+                    Console.WriteLine("=== Map Object Selection ===");
+                    for (int i = 0; i < availableObjects.Length; i++)
+                    {
+                        Console.WriteLine($"[{i + 1}] {availableObjects[i]}");
+                    }
+                    Console.WriteLine("Press 1-9 to choose object");
+                }
 
-            vertices3[8] = gunCenterX + (halfGunWidth) * gunCos - (halfGunHeight) * gunSin;
-            vertices3[9] = gunCenterY + (halfGunWidth) * gunSin + (halfGunHeight) * gunCos;
+                // Detect number key input for object selection
+                if (selectingObject)
+                {
+                    for (int i = 0; i < availableObjects.Length && i < 9; i++)
+                    {
+                        if (KeyboardState.IsKeyPressed(Keys.KeyPad1 + i))
+                        {
+                            selectedEditObject = availableObjects[i];
+                            selectingObject = false;
+                            Console.WriteLine($"Selected: {selectedEditObject}");
+                        }
+                    }
+                }
 
-            vertices3[12] = gunCenterX + (-halfGunWidth) * gunCos - (halfGunHeight) * gunSin;
-            vertices3[13] = gunCenterY + (-halfGunWidth) * gunSin + (halfGunHeight) * gunCos;
+                // Left click = place selected object
+                if (MouseState.IsButtonPressed(MouseButton.Left) && highlightedTileX >= 0 && highlightedTileX < cols && highlightedTileY >= 0 && highlightedTileY < rows)
+                {
+                    string[] pos = positionArray[highlightedTileY][highlightedTileX].Split(',');
+                    float placeX = float.Parse(pos[0]);
+                    float placeY = float.Parse(pos[1]);
+
+                    PlaceObjectAt(selectedEditObject, placeX, placeY);
+                }
+
+                if (MouseState.IsButtonPressed(MouseButton.Middle) && highlightedTileX >= 0 && highlightedTileX < cols && highlightedTileY >= 0 && highlightedTileY < rows)
+                {
+                    mapArray[highlightedTileY][highlightedTileX] = "*";
+                    CreateMap();
+                }
+
+
+            }
+
+
+
+
+            //Movement Handling
+            if (!editMode)
+            {
+                if (k.IsKeyDown(Keys.W))
+                {
+                    if (CanMove(playerLeft, playerRight, playerTop, playerBottom, 0f, step))
+                    {
+                        movement.Y += step;
+                    }
+                }
+                if (k.IsKeyDown(Keys.S))
+                {
+                    if (CanMove(playerLeft, playerRight, playerTop, playerBottom, 0f, -step))
+                    {
+                        movement.Y -= step;
+                    }
+                }
+                if (k.IsKeyDown(Keys.A))
+                {
+                    if (CanMove(playerLeft, playerRight, playerTop, playerBottom, -step, 0f))
+                    {
+                        movement.X -= step;
+                    }
+                }
+                if (k.IsKeyDown(Keys.D))
+                {
+                    if (CanMove(playerLeft, playerRight, playerTop, playerBottom, step, 0f))
+                    {
+                        movement.X += step;
+                    }
+                }
+
+                //Apply movement to the internal bounding geometry
+                for (int i = 0; i < _vertices.Length; i += 3)
+                {
+                    _vertices[i] += movement.X;
+                    _vertices[i + 1] += movement.Y;
+                }
+
+                //Recompute center + rotation
+                float playerCenterX = (_vertices[0] + _vertices[3]) * 0.5f;
+                float playerCenterY = (_vertices[1] + _vertices[4]) * 0.5f;
+                Vector2 direction = new Vector2(normalizedX - playerCenterX, normalizedY - playerCenterY);
+                float playerRotation = MathF.Atan2(direction.Y, direction.X);
+
+                float playerWidth = 0.20f;
+                float playerHeight = 0.20f;
+                float cosA = MathF.Cos(playerRotation);
+                float sinA = MathF.Sin(playerRotation);
+
+                // top-left
+                playerVertices[0] = playerCenterX + (-playerWidth / 2) * cosA - (playerHeight / 2) * sinA;
+                playerVertices[1] = playerCenterY + (-playerWidth / 2) * sinA + (playerHeight / 2) * cosA;
+                // top-right
+                playerVertices[4] = playerCenterX + (playerWidth / 2) * cosA - (playerHeight / 2) * sinA;
+                playerVertices[5] = playerCenterY + (playerWidth / 2) * sinA + (playerHeight / 2) * cosA;
+                // bottom-right
+                playerVertices[8] = playerCenterX + (playerWidth / 2) * cosA - (-playerHeight / 2) * sinA;
+                playerVertices[9] = playerCenterY + (playerWidth / 2) * sinA + (-playerHeight / 2) * cosA;
+                // bottom-left
+                playerVertices[12] = playerCenterX + (-playerWidth / 2) * cosA - (-playerHeight / 2) * sinA;
+                playerVertices[13] = playerCenterY + (-playerWidth / 2) * sinA + (-playerHeight / 2) * cosA;
+
+                //Gun positioning
+                float gunWidthScale = 0.18f;
+                float gunHeightScale = 0.18f;
+                float gunRotationScale = 1.0f;
+                float gunXOffset = 0.13f;
+                float gunYOffset = 0.0f;
+                float halfGunWidth = 0.5f * gunWidthScale;
+                float halfGunHeight = 0.5f * gunHeightScale;
+                float gunOffsetX = gunXOffset * cosA - gunYOffset * sinA;
+                float gunOffsetY = gunXOffset * sinA + gunYOffset * cosA;
+                float gunCenterX = playerCenterX + gunOffsetX;
+                float gunCenterY = playerCenterY + gunOffsetY;
+                float gunCos = MathF.Cos(playerRotation * gunRotationScale);
+                float gunSin = MathF.Sin(playerRotation * gunRotationScale);
+
+                vertices3[0] = gunCenterX + (-halfGunWidth) * gunCos - (-halfGunHeight) * gunSin;
+                vertices3[1] = gunCenterY + (-halfGunWidth) * gunSin + (-halfGunHeight) * gunCos;
+
+                vertices3[4] = gunCenterX + (halfGunWidth) * gunCos - (-halfGunHeight) * gunSin;
+                vertices3[5] = gunCenterY + (halfGunWidth) * gunSin + (-halfGunHeight) * gunCos;
+
+                vertices3[8] = gunCenterX + (halfGunWidth) * gunCos - (halfGunHeight) * gunSin;
+                vertices3[9] = gunCenterY + (halfGunWidth) * gunSin + (halfGunHeight) * gunCos;
+
+                vertices3[12] = gunCenterX + (-halfGunWidth) * gunCos - (halfGunHeight) * gunSin;
+                vertices3[13] = gunCenterY + (-halfGunWidth) * gunSin + (halfGunHeight) * gunCos;
+            }
 
             // Update GL buffers
             GL.BindBuffer(BufferTarget.ArrayBuffer, playerVbo);
@@ -446,7 +597,44 @@ namespace OpenTKGame
             GL.BufferSubData(BufferTarget.ArrayBuffer, IntPtr.Zero, backgroundVertices.Length * sizeof(float), backgroundVertices);
         }
 
-        
+        private void PlaceObjectAt(string objectName, float x, float y)
+        {
+            for (int row = 0; row < positionArray.Length; row++)
+            {
+                for (int col = 0; col < positionArray[row].Length; col++)
+                {
+                    string[] pos = positionArray[row][col].Split(',');
+                    float tileX = float.Parse(pos[0]);
+                    float tileY = float.Parse(pos[1]);
+
+                    if (Math.Abs(tileX - x) < 0.001f && Math.Abs(tileY - y) < 0.001f)
+                    {
+                        if (mapArray[row][col] != "*" && mapArray[row][col] != "")
+                        {
+                            Console.WriteLine($"Can't place {objectName} at {x}, {y} — already occupied.");
+                            return;
+                        }
+
+                        if (objectName == "Box") mapArray[row][col] = "S";
+
+                        Console.WriteLine($"Placed {objectName} at {x}, {y}");
+
+                        if (objectName == "Box")
+                        {
+                            boxSquare = CreateSquare(x, y, 0.12f, 0.15f, boxTextureLoc);
+                            squares.Add(boxSquare);
+                        }
+
+                        return;
+                    }
+                }
+            }
+
+            Console.WriteLine($"Warning: Position ({x},{y}) not found in map grid.");
+        }
+
+
+
         private (float left, float right, float bottom, float top) GetPlayerBoundingBox()
         {
             float rawLeft = _vertices[0];
@@ -774,5 +962,34 @@ namespace OpenTKGame
 
             return sp;
         }
+
+        private void SaveMap()
+        {
+            try
+            {
+                string path = MainMap; // path to MainMap.txt
+
+                using (StreamWriter writer = new StreamWriter(path))
+                {
+                    for (int row = 0; row < mapArray.Length; row++)
+                    {
+                        for (int col = 0; col < mapArray[row].Length; col++)
+                        {
+                            writer.Write(mapArray[row][col]);
+                            if (col < mapArray[row].Length - 1)
+                                writer.Write(" ");
+                        }
+                        writer.WriteLine();
+                    }
+                }
+
+                Console.WriteLine("Map saved successfully!");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Failed to save map: " + ex.Message);
+            }
+        }
+
     }
 }
