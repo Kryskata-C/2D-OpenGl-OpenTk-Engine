@@ -9,6 +9,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using StbImageSharp;
 using System.IO;
+using System.Linq.Expressions;
 
 namespace OpenTKGame
 {
@@ -17,7 +18,7 @@ namespace OpenTKGame
 
 
 
-        private bool showCollisions = true;
+        private bool showCollisions = false;
 
         private float playerCollisionOffsetLeft = 0.00f;
         private float playerCollisionOffsetRight = 0.00f;
@@ -40,9 +41,11 @@ namespace OpenTKGame
         // The bounding boxes for squares
         private List<SquareData> squares = new List<SquareData>();
 
+
+        //Texture Locations
         private string boxTextureLoc = @"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\box.png";
         private string GreenSquareTextureLoc = @"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\GreenSquare.png";
-        private string RedSquareTextureLoc = @"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\RedSquare.png";
+
         //MAPS
         private string MainMap = @"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Maps\MainMap.txt";
 
@@ -60,7 +63,15 @@ namespace OpenTKGame
         //What object to palce selection in edit mode 
         private string selectedEditObject = "Box"; // default
         private bool selectingObject = false;
-        private string[] availableObjects = new string[] { "Box" }; 
+        private string[] availableObjects = new string[] { "Box" };
+
+
+        //Animations
+        private List<int> idleTextures = new List<int>();
+        private List<int> walkTextures = new List<int>();
+        private int currentAnimFrame = 0;
+        private double animTimer = 0;
+        private double animSpeed = 0.08;
 
 
 
@@ -150,6 +161,33 @@ namespace OpenTKGame
             GL.BufferSubData(BufferTarget.ArrayBuffer, IntPtr.Zero, updatedVertices.Length * sizeof(float), updatedVertices);
         }
 
+
+
+
+        private void LoadPlayerAnimations()
+        {
+            string idleDir = @"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\Animation Rifle Idle";
+            string walkDir = @"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\Animation Rifle Walk";
+
+            for (int i = 0; i <= 19; i++)
+            {
+                string idlePath = Path.Combine(idleDir, $"survivor-idle_rifle_{i}.png");
+                if (File.Exists(idlePath))
+                {
+                    idleTextures.Add(LoadTexture(idlePath));
+                }
+
+                string walkPath = Path.Combine(walkDir, $"survivor-move_rifle_{i}.png");
+                if (File.Exists(walkPath))
+                {
+                    walkTextures.Add(LoadTexture(walkPath));
+                }
+            }
+
+            playerTexture = idleTextures[0]; 
+        }
+
+
         protected override void OnLoad()
         {
             base.OnLoad();
@@ -161,7 +199,7 @@ namespace OpenTKGame
             GL.UseProgram(shaderProgram);
 
             //Edit mode square setup
-            highlightTemplate = CreateSquare(0, 0, tileWidth, tileHeight, GreenSquareTextureLoc);
+            highlightTemplate = CreateSquare(0, 0, tileWidth, tileHeight, GreenSquareTextureLoc,false);
             highlightInitialized = true;
     
 
@@ -169,7 +207,7 @@ namespace OpenTKGame
             playerVao = GL.GenVertexArray();
             playerVbo = GL.GenBuffer();
             playerEbo = GL.GenBuffer();
-            playerTexture = LoadTexture(@"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\SoliderRotated.png");
+            playerTexture = LoadTexture(@"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\survivor-idle_rifle_0.png");
 
             GL.BindVertexArray(playerVao);
             GL.BindBuffer(BufferTarget.ArrayBuffer, playerVbo);
@@ -186,26 +224,9 @@ namespace OpenTKGame
             GL.VertexAttribPointer(texLocationPlayer, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), 2 * sizeof(float));
             GL.BindVertexArray(0);
 
-            //Shotgun Setup
-            vao3 = GL.GenVertexArray();
-            vbo3 = GL.GenBuffer();
-            ebo3 = GL.GenBuffer(); // ebo3 instead of ebo2, just to avoid confusion
-            texture = LoadTexture(@"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\shotgun2.png");
 
-            GL.BindVertexArray(vao3);
-            GL.BindBuffer(BufferTarget.ArrayBuffer, vbo3);
-            GL.BufferData(BufferTarget.ArrayBuffer, vertices3.Length * sizeof(float), vertices3, BufferUsageHint.StaticDraw);
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, ebo3);
-            GL.BufferData(BufferTarget.ElementArrayBuffer, indices3.Length * sizeof(uint), indices3, BufferUsageHint.StaticDraw);
-
-            int posLocationShotgun = GL.GetAttribLocation(shaderProgram, "aPosition");
-            GL.EnableVertexAttribArray(posLocationShotgun);
-            GL.VertexAttribPointer(posLocationShotgun, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), 0);
-
-            int texLocationShotgun = GL.GetAttribLocation(shaderProgram, "aTexCoord");
-            GL.EnableVertexAttribArray(texLocationShotgun);
-            GL.VertexAttribPointer(texLocationShotgun, 2, VertexAttribPointerType.Float, false, 4 * sizeof(float), 2 * sizeof(float));
-            GL.BindVertexArray(0);
+            //Animations
+            LoadPlayerAnimations();
 
             //Background Setup
             backgroundVao = GL.GenVertexArray();
@@ -266,6 +287,7 @@ namespace OpenTKGame
                 }
             }
             CreateMap();
+
         }
 
 
@@ -284,7 +306,7 @@ namespace OpenTKGame
 
                     if (mapArray[i][j] == "S") 
                     {
-                        boxSquare = CreateSquare(x, y, 0.12f, 0.15f, boxTextureLoc);
+                        boxSquare = CreateSquare(x, y, 0.12f, 0.15f, boxTextureLoc,true);
                         squares.Add(boxSquare);
                     }
                 }
@@ -405,6 +427,23 @@ namespace OpenTKGame
 
             float step = 0.00005f;
             Vector2 movement = Vector2.Zero;
+
+            //Animation handling
+            bool isIdle = !k.IsKeyDown(Keys.W) && !k.IsKeyDown(Keys.A) && !k.IsKeyDown(Keys.S) && !k.IsKeyDown(Keys.D);
+
+            bool isMoving = k.IsKeyDown(Keys.W) || k.IsKeyDown(Keys.A) || k.IsKeyDown(Keys.S) || k.IsKeyDown(Keys.D);
+            List<int> currentFrames = isMoving ? walkTextures : idleTextures;
+
+            animTimer += args.Time;
+            if (animTimer >= animSpeed)
+            {
+                currentAnimFrame = (currentAnimFrame + 1) % currentFrames.Count;
+                playerTexture = currentFrames[currentAnimFrame];
+                animTimer = 0;
+
+                Console.WriteLine($"[ANIM] {(isMoving ? "WALK" : "IDLE")} Frame {currentAnimFrame}");
+            }
+
 
 
             //Edit mode handling
@@ -621,7 +660,7 @@ namespace OpenTKGame
 
                         if (objectName == "Box")
                         {
-                            boxSquare = CreateSquare(x, y, 0.12f, 0.15f, boxTextureLoc);
+                            boxSquare = CreateSquare(x, y, 0.12f, 0.15f, boxTextureLoc,true);
                             squares.Add(boxSquare);
                         }
 
@@ -683,6 +722,9 @@ namespace OpenTKGame
             // Squares
             foreach (var sq in squares)
             {
+                if (!sq.HasCollision)
+                    continue;
+
                 float sqLeft = sq.CenterX - sq.HalfW;
                 float sqRight = sq.CenterX + sq.HalfW;
                 float sqBottom = sq.CenterY - sq.HalfH;
@@ -695,6 +737,7 @@ namespace OpenTKGame
                     return false;
                 }
             }
+
 
             return true;
         }
@@ -783,9 +826,12 @@ namespace OpenTKGame
             public float CenterY;
             public float HalfW;
             public float HalfH;
+
+            public bool HasCollision; 
         }
 
-        public SquareData CreateSquare(float centerX, float centerY, float width, float height, string texturePath)
+
+        public SquareData CreateSquare(float centerX, float centerY, float width, float height, string texturePath, bool hasCollision)
         {
             float halfW = width * 0.5f;
             float halfH = height * 0.5f;
@@ -796,7 +842,7 @@ namespace OpenTKGame
                 centerX + halfW, centerY - halfH,  1.0f, 0.0f,
                 centerX + halfW, centerY + halfH,  1.0f, 1.0f,
                 centerX - halfW, centerY + halfH,  0.0f, 1.0f
-            };
+            };  
 
             uint[] indices = { 0, 1, 2, 2, 3, 0 };
 
@@ -833,9 +879,11 @@ namespace OpenTKGame
                 CenterX = centerX,
                 CenterY = centerY,
                 HalfW = halfW,
-                HalfH = halfH
+                HalfH = halfH,
+                HasCollision = hasCollision
             };
         }
+
 
         private string LoadShaderSource(string filePath)
         {
@@ -993,3 +1041,10 @@ namespace OpenTKGame
 
     }
 }
+
+
+
+
+//═══◆ KRST™ ENGINE ◆═══
+//Built by Kryskata. Powered by OpenTK.
+//© 2025 All rights reserved.
