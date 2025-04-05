@@ -69,9 +69,14 @@ namespace OpenTKGame
         //Animations
         private List<int> idleTextures = new List<int>();
         private List<int> walkTextures = new List<int>();
+        private List<int> reloadTextures = new List<int>();
         private int currentAnimFrame = 0;
         private double animTimer = 0;
         private double animSpeed = 0.08;
+        private bool isReloading = false;
+        private double reloadAnimSpeed = 0.06;
+        private double reloadTimer = 0;
+        private int reloadFrame = 0;
 
 
 
@@ -162,12 +167,15 @@ namespace OpenTKGame
         }
 
 
+        private double walkAnimSpeed = 0.05; // faster (lower = faster)
+        private double idleAnimSpeed = 0.08; // keep idle slower
 
 
         private void LoadPlayerAnimations()
         {
             string idleDir = @"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\Animation Rifle Idle";
             string walkDir = @"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\Animation Rifle Walk";
+            string reloadDir = @"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\Animation Rifle Reload";
 
             for (int i = 0; i <= 19; i++)
             {
@@ -181,6 +189,12 @@ namespace OpenTKGame
                 if (File.Exists(walkPath))
                 {
                     walkTextures.Add(LoadTexture(walkPath));
+                }
+
+                string reloadPath = Path.Combine(reloadDir, $"survivor-reload_rifle_{i}.png");
+                if (File.Exists(reloadPath))
+                {
+                    reloadTextures.Add(LoadTexture(reloadPath));
                 }
             }
 
@@ -429,13 +443,40 @@ namespace OpenTKGame
             Vector2 movement = Vector2.Zero;
 
             //Animation handling
+
+            if (isReloading)
+            {
+                reloadTimer += args.Time;
+                if (reloadTimer >= reloadAnimSpeed)
+                {
+                    reloadFrame++;
+                    reloadTimer = 0;
+
+                    if (reloadFrame >= reloadTextures.Count)
+                    {
+                        isReloading = false;
+                        reloadFrame = 0;
+                        Console.WriteLine("Reload complete");
+                    }
+                    else
+                    {
+                        playerTexture = reloadTextures[reloadFrame];
+                        Console.WriteLine($"[ANIM] RELOAD Frame {reloadFrame}");
+                    }
+                }
+                return; 
+            }
+
+
             bool isIdle = !k.IsKeyDown(Keys.W) && !k.IsKeyDown(Keys.A) && !k.IsKeyDown(Keys.S) && !k.IsKeyDown(Keys.D);
 
             bool isMoving = k.IsKeyDown(Keys.W) || k.IsKeyDown(Keys.A) || k.IsKeyDown(Keys.S) || k.IsKeyDown(Keys.D);
             List<int> currentFrames = isMoving ? walkTextures : idleTextures;
 
             animTimer += args.Time;
-            if (animTimer >= animSpeed)
+            double currentSpeed = isMoving ? walkAnimSpeed : idleAnimSpeed;
+
+            if (animTimer >= currentSpeed)
             {
                 currentAnimFrame = (currentAnimFrame + 1) % currentFrames.Count;
                 playerTexture = currentFrames[currentAnimFrame];
@@ -444,7 +485,13 @@ namespace OpenTKGame
                 Console.WriteLine($"[ANIM] {(isMoving ? "WALK" : "IDLE")} Frame {currentAnimFrame}");
             }
 
-
+            if (!editMode && KeyboardState.IsKeyPressed(Keys.R) && !isReloading)
+            {
+                isReloading = true;
+                reloadFrame = 0;
+                reloadTimer = 0;
+                Console.WriteLine("Started reload animation");
+            }
 
             //Edit mode handling
 
