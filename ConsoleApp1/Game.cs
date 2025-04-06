@@ -53,11 +53,15 @@ namespace OpenTKGame
         //Texture Locations
         private static readonly string TexturesDir = Path.Combine(projectDir, "Textures");
         private static readonly string MapsDir = Path.Combine(projectDir, "Maps");
+        private static readonly string TilesDir = Path.Combine(TexturesDir, "Dirt Tiles");
+
 
         private string boxTextureLoc = Path.Combine(TexturesDir, "box.png");
         private string GreenSquareTextureLoc = Path.Combine(TexturesDir, "GreenSquare.png");
         private string MainMap = Path.Combine(MapsDir, "MainMap.txt");
-
+        private string Dirt_Main = Path.Combine(TilesDir, "Dirt_Main.png");
+        private string Dirt_GrassSide = Path.Combine(TilesDir, "Dirt_GrassSide.png");
+        private string Dirt_GrassBottomLeft = Path.Combine(TilesDir, "Dirt_GrassBottomLeft.png");
 
         private SquareData boxSquare;
 
@@ -73,7 +77,7 @@ namespace OpenTKGame
         //What object to palce selection in edit mode 
         private string selectedEditObject = "Box"; // default
         private bool selectingObject = false;
-        private string[] availableObjects = new string[] { "Box" };
+        private string[] availableObjects = new string[] { "Box", "Dirt_GrassBottomLeft", "Dirt_GrassSide","Dirt_Main"};
 
 
         //Animations
@@ -761,6 +765,12 @@ namespace OpenTKGame
                             boxSquare = CreateSquare(x, y, 0.12f, 0.15f, boxTextureLoc,true);
                             squares.Add(boxSquare);
                         }
+                        if (objectName == "Dirt_GrassBottomLeft")
+                        {
+                            var dirtSquare = CreateSquare(x, y, 0.12f, 0.15f, Dirt_GrassBottomLeft, true);
+                            squares.Add(dirtSquare);
+                        }
+
 
                         return;
                     }
