@@ -15,22 +15,25 @@ namespace OpenTKGame
 {
     public class Game : GameWindow
     {
+        private float _playerCenterX;
+        private float _playerCenterY;
 
-
-
+        // Debugging tools
+        private bool lightingEnabled = true;
         private bool showCollisions = false;
+        //-----------------------------------
 
-        private float playerCollisionOffsetLeft = 0.00f;
+        private float playerCollisionOffsetLeft = -0.05f;
         private float playerCollisionOffsetRight = 0.00f;
-        private float playerCollisionOffsetTop = -0.03f;
-        private float playerCollisionOffsetBottom = 0.00f;
+        private float playerCollisionOffsetTop = -0.01f;
+        private float playerCollisionOffsetBottom = 0.010f;
 
-        private float playerCollisionScaleX = 1.5f;
-        private float playerCollisionScaleY = 2.0f;
+        private float playerCollisionScaleX = 1f;
+        private float playerCollisionScaleY = 1.7f;
 
 
-        int mapWidth = (int)(2.0f / 0.12f);   // 16
-        int mapHeight = (int)(2.0f / 0.15f);  // 13
+        int mapWidth = (int)(2.0f / 0.12f);   
+        int mapHeight = (int)(2.0f / 0.15f);  
 
 
         private int _vao, _vbo, ebo, _shaderProgram;
@@ -208,9 +211,10 @@ namespace OpenTKGame
             Console.WriteLine($"OpenGL Version: {GL.GetString(StringName.Version)}");
             GL.ClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
-            //Create + Use main shader
-            shaderProgram = CreateShader();
+            //Create + Use main shader + no lighting shader
+            shaderProgram = CreateLightingShader();
             GL.UseProgram(shaderProgram);
+            noLightingShaderProgram = CreateNoLightingShader();
 
             //Edit mode square setup
             highlightTemplate = CreateSquare(0, 0, tileWidth, tileHeight, GreenSquareTextureLoc,false);
@@ -345,8 +349,35 @@ namespace OpenTKGame
             GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
             GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
 
-            // Use main shader
-            GL.UseProgram(shaderProgram);
+
+            //Handle lighting 
+            if (lightingEnabled)
+            {
+                GL.UseProgram(shaderProgram);
+            }
+
+            else
+            {
+                GL.UseProgram(noLightingShaderProgram);
+            }
+
+            // 1) Window size uniform
+            int windowSizeLoc = GL.GetUniformLocation(shaderProgram, "u_WindowSize");
+            GL.Uniform2(windowSizeLoc, (float)ClientSize.X, (float)ClientSize.Y);
+
+            // 2) Player position (using the fields we set in OnUpdateFrame)
+            float playerNdcX = _playerCenterX;
+            float playerNdcY = _playerCenterY;
+            int playerPosLoc = GL.GetUniformLocation(shaderProgram, "u_LightPos");
+            GL.Uniform2(playerPosLoc, playerNdcX, playerNdcY);
+
+            // 4) Light radius
+            int radiusLoc = GL.GetUniformLocation(shaderProgram, "u_LightRadius");
+            GL.Uniform1(radiusLoc, 0.7f);
+
+            // 5) Light color
+            int colorLoc = GL.GetUniformLocation(shaderProgram, "u_LightColor");
+            GL.Uniform3(colorLoc, 1.0f, 1.0f, 1.0f);
 
             // Draw background
             GL.BindVertexArray(backgroundVao);
@@ -395,7 +426,8 @@ namespace OpenTKGame
             if (showCollisions)
             {
                 GL.UseProgram(debugShader);
-                int colorLoc = GL.GetUniformLocation(debugShader, "color");
+                int debugColorLoc = GL.GetUniformLocation(debugShader, "color");
+                GL.Uniform4(debugColorLoc, new Vector4(1f, 1f, 1f, 0.5f));
                 // White w/ 50% alpha
                 GL.Uniform4(colorLoc, new Vector4(1f, 1f, 1f, 0.5f));
 
@@ -426,9 +458,18 @@ namespace OpenTKGame
             SwapBuffers();
         }
 
+
+
         protected override void OnUpdateFrame(FrameEventArgs args)
         {
             base.OnUpdateFrame(args);
+
+            //No lighting check
+            if (KeyboardState.IsKeyPressed(Keys.L))
+            {
+                lightingEnabled = !lightingEnabled;
+                Console.WriteLine($"Lighting enabled = {lightingEnabled}");
+            }
 
             //Player bounding box with offsets + scaling
             (float playerLeft, float playerRight, float playerBottom, float playerTop) = GetPlayerBoundingBox();
@@ -461,7 +502,6 @@ namespace OpenTKGame
                     else
                     {
                         playerTexture = reloadTextures[reloadFrame];
-                        Console.WriteLine($"[ANIM] RELOAD Frame {reloadFrame}");
                     }
                 }
                 return; 
@@ -481,8 +521,6 @@ namespace OpenTKGame
                 currentAnimFrame = (currentAnimFrame + 1) % currentFrames.Count;
                 playerTexture = currentFrames[currentAnimFrame];
                 animTimer = 0;
-
-                Console.WriteLine($"[ANIM] {(isMoving ? "WALK" : "IDLE")} Frame {currentAnimFrame}");
             }
 
             if (!editMode && KeyboardState.IsKeyPressed(Keys.R) && !isReloading)
@@ -621,9 +659,9 @@ namespace OpenTKGame
                 }
 
                 //Recompute center + rotation
-                float playerCenterX = (_vertices[0] + _vertices[3]) * 0.5f;
-                float playerCenterY = (_vertices[1] + _vertices[4]) * 0.5f;
-                Vector2 direction = new Vector2(normalizedX - playerCenterX, normalizedY - playerCenterY);
+                _playerCenterX = (_vertices[0] + _vertices[3]) * 0.5f;
+                _playerCenterY = (_vertices[1] + _vertices[4]) * 0.5f;
+                Vector2 direction = new Vector2(normalizedX - _playerCenterX, normalizedY - _playerCenterY);
                 float playerRotation = MathF.Atan2(direction.Y, direction.X);
 
                 float playerWidth = 0.20f;
@@ -632,17 +670,17 @@ namespace OpenTKGame
                 float sinA = MathF.Sin(playerRotation);
 
                 // top-left
-                playerVertices[0] = playerCenterX + (-playerWidth / 2) * cosA - (playerHeight / 2) * sinA;
-                playerVertices[1] = playerCenterY + (-playerWidth / 2) * sinA + (playerHeight / 2) * cosA;
+                playerVertices[0] = _playerCenterX + (-playerWidth / 2) * cosA - (playerHeight / 2) * sinA;
+                playerVertices[1] = _playerCenterY + (-playerWidth / 2) * sinA + (playerHeight / 2) * cosA;
                 // top-right
-                playerVertices[4] = playerCenterX + (playerWidth / 2) * cosA - (playerHeight / 2) * sinA;
-                playerVertices[5] = playerCenterY + (playerWidth / 2) * sinA + (playerHeight / 2) * cosA;
+                playerVertices[4] = _playerCenterX + (playerWidth / 2) * cosA - (playerHeight / 2) * sinA;
+                playerVertices[5] = _playerCenterY + (playerWidth / 2) * sinA + (playerHeight / 2) * cosA;
                 // bottom-right
-                playerVertices[8] = playerCenterX + (playerWidth / 2) * cosA - (-playerHeight / 2) * sinA;
-                playerVertices[9] = playerCenterY + (playerWidth / 2) * sinA + (-playerHeight / 2) * cosA;
+                playerVertices[8] = _playerCenterX + (playerWidth / 2) * cosA - (-playerHeight / 2) * sinA;
+                playerVertices[9] = _playerCenterY + (playerWidth / 2) * sinA + (-playerHeight / 2) * cosA;
                 // bottom-left
-                playerVertices[12] = playerCenterX + (-playerWidth / 2) * cosA - (-playerHeight / 2) * sinA;
-                playerVertices[13] = playerCenterY + (-playerWidth / 2) * sinA + (-playerHeight / 2) * cosA;
+                playerVertices[12] = _playerCenterX + (-playerWidth / 2) * cosA - (-playerHeight / 2) * sinA;
+                playerVertices[13] = _playerCenterY + (-playerWidth / 2) * sinA + (-playerHeight / 2) * cosA;
 
                 //Gun positioning
                 float gunWidthScale = 0.18f;
@@ -654,8 +692,8 @@ namespace OpenTKGame
                 float halfGunHeight = 0.5f * gunHeightScale;
                 float gunOffsetX = gunXOffset * cosA - gunYOffset * sinA;
                 float gunOffsetY = gunXOffset * sinA + gunYOffset * cosA;
-                float gunCenterX = playerCenterX + gunOffsetX;
-                float gunCenterY = playerCenterY + gunOffsetY;
+                float gunCenterX = _playerCenterX + gunOffsetX;
+                float gunCenterY = _playerCenterY + gunOffsetY;
                 float gunCos = MathF.Cos(playerRotation * gunRotationScale);
                 float gunSin = MathF.Sin(playerRotation * gunRotationScale);
 
@@ -681,6 +719,9 @@ namespace OpenTKGame
 
             GL.BindBuffer(BufferTarget.ArrayBuffer, backgroundVbo);
             GL.BufferSubData(BufferTarget.ArrayBuffer, IntPtr.Zero, backgroundVertices.Length * sizeof(float), backgroundVertices);
+
+
+
         }
 
         private void PlaceObjectAt(string objectName, float x, float y)
@@ -859,7 +900,35 @@ namespace OpenTKGame
         {
             base.OnResize(e);
             GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
+
+            // Compute aspect ratio
+            float aspect = ClientSize.X / (float)ClientSize.Y;
+
+            // Example: we want to keep height from -1 to +1,
+            // but expand or shrink the X range to maintain ratio
+            // so that the game region is 2.0 units tall, but 2.0 * aspect wide.
+            //
+            // left   = -aspect
+            // right  = +aspect
+            // bottom = -1
+            // top    = +1
+            // 
+            // Then any geometry drawn in [-1..1, -1..1] will get pillarboxed if wide,
+            // or letterboxed if tall, but will not stretch.
+
+            float left = -aspect;
+            float right = +aspect;
+            float bottom = -1f;
+            float top = +1f;
+
+            // If you had a projection matrix, you’d recalculate it here:
+            // projectionMatrix = Matrix4.CreateOrthographicOffCenter(left, right, bottom, top, zNear, zFar);
+            // Then pass it to your shader or do the transform as appropriate.
+
+            // In a pure -1..1 approach, you can also do nothing except draw your scene in the range [-aspect..+aspect, -1..+1],
+            // so that you effectively see the same shape with black bars on the sides or top.
         }
+
 
         // A struct storing data for each “square” obstacle
         public struct SquareData
@@ -1015,48 +1084,102 @@ namespace OpenTKGame
 
             return prog;
         }
-
-        private int CreateShader()
+        private int CreateLightingShader()
         {
             string vertexShaderSource = @"
-                #version 330 core
-                layout (location=0) in vec2 aPosition;
-                layout (location=1) in vec2 aTexCoord;
-                out vec2 TexCoord;
-                void main()
-                {
-                    gl_Position = vec4(aPosition, 0.0, 1.0);
-                    TexCoord = aTexCoord;
-                }";
-
-            int vertexShader = GL.CreateShader(ShaderType.VertexShader);
-            GL.ShaderSource(vertexShader, vertexShaderSource);
-            GL.CompileShader(vertexShader);
-
-            string fragmentShaderSource = @"
-                #version 330 core
-                out vec4 FragColor;
-                in vec2 TexCoord;
-                uniform sampler2D texture1;
-                void main()
-                {
-                    FragColor = texture(texture1, TexCoord);
-                }";
-
+            #version 330 core
+            layout (location = 0) in vec2 aPosition;
+            layout (location = 1) in vec2 aTexCoord;
+            out vec2 TexCoord;
+            void main()
+            {
+                gl_Position = vec4(aPosition, 0.0, 1.0);
+                TexCoord = aTexCoord;
+            }
+            ";
+                        int vertexShader = GL.CreateShader(ShaderType.VertexShader);
+                        GL.ShaderSource(vertexShader, vertexShaderSource);
+                        GL.CompileShader(vertexShader);
+                        string fragmentShaderSource = @"
+            #version 330 core
+            in vec2 TexCoord;
+            out vec4 FragColor;
+            uniform sampler2D texture1;
+            uniform vec2 u_LightPos;
+            uniform float u_LightRadius;
+            uniform vec3 u_LightColor;
+            uniform vec2 u_WindowSize;
+            void main()
+            {
+                vec4 baseColor = texture(texture1, TexCoord);
+                float ndcX = (gl_FragCoord.x / u_WindowSize.x) * 2.0 - 1.0;
+                float ndcY = (gl_FragCoord.y / u_WindowSize.y) * 2.0 - 1.0;
+                vec2 fragPosNDC = vec2(ndcX, ndcY);
+                float dist = length(fragPosNDC - u_LightPos);
+                float intensity = 1.0 - (dist * dist) / (u_LightRadius * u_LightRadius);
+                intensity = clamp(intensity, 0.0, 1.0);
+                vec3 finalColor = baseColor.rgb * (u_LightColor * intensity);
+                FragColor = vec4(finalColor, baseColor.a);
+            }
+            ";
             int fragmentShader = GL.CreateShader(ShaderType.FragmentShader);
             GL.ShaderSource(fragmentShader, fragmentShaderSource);
             GL.CompileShader(fragmentShader);
+            int program = GL.CreateProgram();
+            GL.AttachShader(program, vertexShader);
+            GL.AttachShader(program, fragmentShader);
+            GL.LinkProgram(program);
+            GL.DeleteShader(vertexShader);
+            GL.DeleteShader(fragmentShader);
+            return program;
+        }
 
-            int sp = GL.CreateProgram();
-            GL.AttachShader(sp, vertexShader);
-            GL.AttachShader(sp, fragmentShader);
-            GL.LinkProgram(sp);
+        private int noLightingShaderProgram;
+
+        private int CreateNoLightingShader()
+        {
+            string vs = @"
+            #version 330 core
+            layout (location = 0) in vec2 aPosition;
+            layout (location = 1) in vec2 aTexCoord;
+            out vec2 TexCoord;
+            void main()
+            {
+                gl_Position = vec4(aPosition, 0.0, 1.0);
+                TexCoord = aTexCoord;
+            }
+            ";
+
+                    string fs = @"
+            #version 330 core
+            in vec2 TexCoord;
+            out vec4 FragColor;
+            uniform sampler2D texture1;
+            void main()
+            {
+                FragColor = texture(texture1, TexCoord);
+            }
+            ";
+
+            int vertexShader = GL.CreateShader(ShaderType.VertexShader);
+            GL.ShaderSource(vertexShader, vs);
+            GL.CompileShader(vertexShader);
+
+            int fragmentShader = GL.CreateShader(ShaderType.FragmentShader);
+            GL.ShaderSource(fragmentShader, fs);
+            GL.CompileShader(fragmentShader);
+
+            int prog = GL.CreateProgram();
+            GL.AttachShader(prog, vertexShader);
+            GL.AttachShader(prog, fragmentShader);
+            GL.LinkProgram(prog);
 
             GL.DeleteShader(vertexShader);
             GL.DeleteShader(fragmentShader);
 
-            return sp;
+            return prog;
         }
+
 
         private void SaveMap()
         {

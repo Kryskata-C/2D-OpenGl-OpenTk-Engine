@@ -51,6 +51,8 @@ namespace KRSTEngine
             Console.ForegroundColor = ConsoleColor.White; Console.WriteLine("\nAll systems initialized successfully.\n");
             Console.WriteLine("KRST ENGINE FEATURES:");
             Console.WriteLine(" - Map Editor [F1], Contextual Placement, Numpad Selection, Quick Save [F9]");
+            Console.WriteLine(" - Disable/Enable lighting [L]");
+
             Console.WriteLine(); Console.ForegroundColor = ConsoleColor.DarkGray;
             Console.WriteLine("─────────────────────────────────────────────────────────────");
             Console.WriteLine("  KRST ENGINE - Powering Next-Gen Experiences");
@@ -81,7 +83,7 @@ namespace KRSTEngine
             Console.WriteLine("\\ \\  \\/  /|\\ \\  \\|\\  \\ \\  \\___|\\|___ \\  \\_|     \\ \\   __/|\\ \\  \\\\ \\  \\ \\  \\___|\\ \\  \\ \\  \\\\ \\  \\ \\   __/|    ");
             Console.WriteLine(" \\ \\   ___  \\ \\   _  _\\ \\_____  \\   \\ \\  \\       \\ \\  \\_|/_\\ \\  \\\\ \\  \\ \\  \\  __\\ \\  \\ \\  \\\\ \\  \\ \\  \\_|/__  ");
             Console.WriteLine("  \\ \\  \\\\ \\  \\ \\  \\\\  \\\\|____|\\  \\   \\ \\  \\       \\ \\  \\_|\\ \\ \\  \\\\ \\  \\ \\  \\|\\  \\ \\  \\ \\  \\\\ \\  \\ \\  \\_|\\ \\ ");
-            Console.WriteLine("   \\ \\__\\\\ \\__\\ \\__\\\\ _\\ ____\\_\\  \\   \\ \\__\\       \\ \\_______\\ \\__\\\\ \\__\\ \\_______\\ \\__\\ \\__\\\\ \\__\\ \\_______\\");
+            Console.WriteLine("   \\ \\__\\\\ \\__\\ \\__\\\\ _\\|____|\\__\\   \\ \\__\\        \\ \\_______\\ \\__\\\\ \\__\\ \\_______\\ \\__\\ \\__\\\\ \\__\\ \\_______\\");
             Console.WriteLine("    \\|__| \\|__|\\|__|\\|__|\\_________\\   \\|__|        \\|_______|\\|__| \\|__|\\|_______|\\|__|\\|__| \\|__|\\|_______|");
             Console.WriteLine("                        \\|_________|                                                                           ");
             Console.ResetColor(); Console.WriteLine();
