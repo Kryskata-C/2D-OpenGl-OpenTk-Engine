@@ -59,8 +59,6 @@ namespace KRSTEngine
             Console.WriteLine("  © 2025 KRST Interactive. All rights reserved.");
             Console.WriteLine("  Designed by Kryskata");
             Console.WriteLine("─────────────────────────────────────────────────────────────");
-            Console.ResetColor(); Console.WriteLine("\nPress any key to continue...");
-            Console.ReadKey(true);
         }
 
         static void InitializeDynamicLists()

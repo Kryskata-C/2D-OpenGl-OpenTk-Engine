@@ -23,6 +23,11 @@ namespace OpenTKGame
         private bool showCollisions = false;
         //-----------------------------------
 
+        //file directories path findign stuff
+        private static readonly string projectDir = Path.GetFullPath(
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..")
+        );
+
         private float playerCollisionOffsetLeft = -0.05f;
         private float playerCollisionOffsetRight = 0.00f;
         private float playerCollisionOffsetTop = -0.01f;
@@ -46,11 +51,13 @@ namespace OpenTKGame
 
 
         //Texture Locations
-        private string boxTextureLoc = @"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\box.png";
-        private string GreenSquareTextureLoc = @"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\GreenSquare.png";
+        private static readonly string TexturesDir = Path.Combine(projectDir, "Textures");
+        private static readonly string MapsDir = Path.Combine(projectDir, "Maps");
 
-        //MAPS
-        private string MainMap = @"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Maps\MainMap.txt";
+        private string boxTextureLoc = Path.Combine(TexturesDir, "box.png");
+        private string GreenSquareTextureLoc = Path.Combine(TexturesDir, "GreenSquare.png");
+        private string MainMap = Path.Combine(MapsDir, "MainMap.txt");
+
 
         private SquareData boxSquare;
 
@@ -170,15 +177,14 @@ namespace OpenTKGame
         }
 
 
-        private double walkAnimSpeed = 0.05; // faster (lower = faster)
-        private double idleAnimSpeed = 0.08; // keep idle slower
-
+        private double walkAnimSpeed = 0.05; //lower = faster
+        private double idleAnimSpeed = 0.08; 
 
         private void LoadPlayerAnimations()
         {
-            string idleDir = @"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\Animation Rifle Idle";
-            string walkDir = @"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\Animation Rifle Walk";
-            string reloadDir = @"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\Animation Rifle Reload";
+            string idleDir = Path.Combine(TexturesDir, "Animation Rifle Idle");
+            string walkDir = Path.Combine(TexturesDir, "Animation Rifle Walk");
+            string reloadDir = Path.Combine(TexturesDir, "Animation Rifle Reload");
 
             for (int i = 0; i <= 19; i++)
             {
@@ -225,7 +231,9 @@ namespace OpenTKGame
             playerVao = GL.GenVertexArray();
             playerVbo = GL.GenBuffer();
             playerEbo = GL.GenBuffer();
-            playerTexture = LoadTexture(@"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\survivor-idle_rifle_0.png");
+            playerTexture = LoadTexture(
+                Path.Combine(TexturesDir, "survivor-idle_rifle_0.png")
+            );
 
             GL.BindVertexArray(playerVao);
             GL.BindBuffer(BufferTarget.ArrayBuffer, playerVbo);
@@ -250,7 +258,9 @@ namespace OpenTKGame
             backgroundVao = GL.GenVertexArray();
             backgroundVbo = GL.GenBuffer();
             backgroundEbo = GL.GenBuffer();
-            backgroundTexture = LoadTexture(@"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1\Textures\tileable_grass.png");
+            backgroundTexture = LoadTexture(
+                Path.Combine(TexturesDir, "tileable_grass.png")
+            );
 
             GL.BindVertexArray(backgroundVao);
             GL.BindBuffer(BufferTarget.ArrayBuffer, backgroundVbo);
@@ -1003,8 +1013,10 @@ namespace OpenTKGame
 
         private string LoadShaderSource(string filePath)
         {
-            string projectDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..");
-            string fullPath = Path.Combine(projectDir, "Shaders", filePath);
+            // A “Shaders” folder next to your .exe:
+            string shaderDir = Path.Combine(AppContext.BaseDirectory, "Shaders");
+            string fullPath = Path.Combine(shaderDir, filePath);
+
             if (!File.Exists(fullPath))
             {
                 Console.WriteLine($"Shader file not found: {fullPath}");
@@ -1012,6 +1024,7 @@ namespace OpenTKGame
             }
             return File.ReadAllText(fullPath);
         }
+
 
         private int LoadTexture(string path)
         {
