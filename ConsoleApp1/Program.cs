@@ -4,6 +4,7 @@ using OpenTKGame;
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Reflection;
 
 namespace KRSTEngine
 {
@@ -13,7 +14,11 @@ namespace KRSTEngine
         {
             Console.SetWindowSize(90, 30);
             Console.SetBufferSize(90, 30);
-            Directory.SetCurrentDirectory(@"C:\Users\chris\OneDrive\Desktop\OpenTkProject\ConsoleApp1\ConsoleApp1");
+            string exeDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            if (!string.IsNullOrEmpty(exeDirectory))
+            {
+                Directory.SetCurrentDirectory(exeDirectory);
+            }
             KRSTBootConsole.RunFullBootSequence();
             using Game game = new Game(900, 720, "KRST Engine");
             game.Run();
