@@ -15,10 +15,7 @@ namespace KRSTEngine
             Console.SetWindowSize(90, 30);
             Console.SetBufferSize(90, 30);
             string exeDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            if (!string.IsNullOrEmpty(exeDirectory))
-            {
-                Directory.SetCurrentDirectory(exeDirectory);
-            }
+            if (!string.IsNullOrEmpty(exeDirectory)) Directory.SetCurrentDirectory(exeDirectory);
             KRSTBootConsole.RunFullBootSequence();
             using Game game = new Game(900, 720, "KRST Engine");
             game.Run();
@@ -43,28 +40,38 @@ namespace KRSTEngine
             AnimateAscii();
             Console.Beep(523, 100);
             InitializeDynamicLists();
-            ShowProgressBar();
-            LogHeader("Initializing Systems");
             foreach (var system in systems) Log(system, SystemColor, "[SYSTEM]");
-            LogHeader("Compiling Shaders");
+            KRSTBootConsole.MarkAsLoaded("Systems");
+            SimulateLoading("Systems", SystemColor);
             foreach (var shader in shaders) Log(shader, ShaderColor, "[SHADER]");
-            LogHeader("Loading Textures");
+            KRSTBootConsole.MarkAsLoaded("Shaders");
+            SimulateLoading("Shaders", ShaderColor);
             foreach (var tex in textures) Log(tex, TextureColor, "[TEXTURE]");
-            LogHeader("Loading Maps");
+            KRSTBootConsole.MarkAsLoaded("Textures");
+            SimulateLoading("Textures", TextureColor);
             foreach (var map in maps) Log(map, MapColor, "[MAP]");
-            Thread.Sleep(300);
+            KRSTBootConsole.MarkAsLoaded("Maps");
+            SimulateLoading("Maps", MapColor);
             Console.ForegroundColor = ConsoleColor.White; Console.WriteLine("\nAll systems initialized successfully.\n");
             Console.WriteLine("KRST ENGINE FEATURES:");
             Console.WriteLine(" - Map Editor [F1], Contextual Placement, Numpad Selection, Quick Save [F9]");
             Console.WriteLine(" - Disable/Enable lighting [L]");
-
-            Console.WriteLine(); Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine("─────────────────────────────────────────────────────────────");
-            Console.WriteLine("  KRST ENGINE - Powering Next-Gen Experiences");
-            Console.WriteLine("  © 2025 KRST Interactive. All rights reserved.");
-            Console.WriteLine("  Designed by Kryskata");
-            Console.WriteLine("─────────────────────────────────────────────────────────────");
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine("═══════════════════════════════════════════════════════════════════════");
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("                          KRST ENGINE");
+            Console.ForegroundColor = ConsoleColor.Gray;
+            Console.WriteLine("                  Powering 2D Experiences");
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine("             @ 2025 KRST Interactive. All rights reserved.");
+            Console.WriteLine("                   Designed & Engineered by Kryskata");
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine("═══════════════════════════════════════════════════════════════════════");
+            Console.ResetColor();
         }
+
 
         static void InitializeDynamicLists()
         {
@@ -92,67 +99,75 @@ namespace KRSTEngine
             Console.ResetColor(); Console.WriteLine();
         }
 
+        static void AnimateAscii()
+        {
+            string[] frames =
+            {
+@"
+                    \o/        _______
+                     |         |Kryskata|
+                    / \         ---------
+",
+@"
+                     o/         _______
+                     |         |Kryskata|
+                    / \         ---------
+",
+@"
+                      o          _______
+                     /|        |Kryskata|
+                     / \       ---------
+",
+@"
+                    \o         _______
+                     |\       |Kryskata|
+                    / \       ---------
+",
+@"
+                    \o/        _______
+                     |         |Kryskata|
+                    / \        ---------
+"
+            };
+
+            for (int i = 0; i < frames.Length; i++)
+            {
+                Console.Clear();
+                TitleBar();
+                Console.WriteLine(frames[i]);
+                Thread.Sleep(250);
+            }
+            Console.Clear();
+            TitleBar();
+        }
+
+        static HashSet<string> loadedTypes = new HashSet<string>();
+
+        
+
+        static void SimulateLoading(string type, ConsoleColor color)
+        {
+            Console.ForegroundColor = color;
+            Console.Write($"[LOADING] {type,-10} ");
+            while (!loadedTypes.Contains(type)) { Thread.Sleep(50); Console.Write("."); }
+            Console.WriteLine(" Done");
+            Console.ResetColor();
+        }
+        public static void MarkAsLoaded(string type)
+        {
+            loadedTypes.Add(type);
+        }
+        static void Log(string message, ConsoleColor color, string tag)
+        {
+            Console.ForegroundColor = color;
+            Console.WriteLine($"{tag,-10} -> {Path.GetFileName(message)}");
+        }
+
         static void LogHeader(string title)
         {
             Console.ForegroundColor = ConsoleColor.DarkGray;
             Console.WriteLine("\n--== " + title + " ==--\n");
         }
 
-        static void Log(string message, ConsoleColor color, string tag)
-        {
-            Console.ForegroundColor = color; Console.WriteLine($"{tag,-10} -> {Path.GetFileName(message)}");
-        }
-
-        static void AnimateAscii()
-        {
-            string[] frames =
-            {
-@"        \o/        _______
-         |         |Kryskata|
-        / \        ---------
-",
-@"         o/        _______
-         |         |Kryskata|
-         / \       ---------
-",
-@"         o         _______
-        /|         |Kryskata|
-        / \        ---------
-",
-@"        \o         _______
-         |\        |Kryskata|
-         / \       ---------
-",
-@"        \o/        _______
-         |         |Kryskata|
-        / \        ---------
-"
-        };
-            for (int i = 0; i < frames.Length; i++)
-            {
-                Console.Clear(); TitleBar();
-                Console.WriteLine(frames[i]);
-                Thread.Sleep(250);
-            }
-            Console.Clear(); TitleBar();
-        }
-
-        static void ShowProgressBar()
-        {
-            int total = systems.Count + shaders.Count + textures.Count + maps.Count;
-            if (total == 0) return;
-            for (int i = 1; i <= total; i++)
-            {
-                float percent = (float)i / total * 100f;
-                int bars = (int)(percent / 5f);
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.Write("\r[");
-                for (int j = 0; j < bars; j++) Console.Write("█");
-                for (int j = bars; j < 20; j++) Console.Write("-");
-                Console.Write("] " + (int)percent + "%");
-                Thread.Sleep(25);
-            }
-            Console.ResetColor(); Console.WriteLine("\n");
-        }
     }
 }

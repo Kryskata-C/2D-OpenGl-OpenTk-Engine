@@ -10,6 +10,8 @@ using System.Drawing.Imaging;
 using StbImageSharp;
 using System.IO;
 using System.Linq.Expressions;
+using KRSTEngine;
+using System.ComponentModel.Design;
 
 namespace OpenTKGame
 {
@@ -21,6 +23,7 @@ namespace OpenTKGame
         // Debugging tools
         private bool lightingEnabled = true;
         private bool showCollisions = false;
+        private string currentMap = "Main";
         //-----------------------------------
 
         //file directories path findign stuff
@@ -59,6 +62,7 @@ namespace OpenTKGame
         private string boxTextureLoc = Path.Combine(TexturesDir, "box.png");
         private string GreenSquareTextureLoc = Path.Combine(TexturesDir, "GreenSquare.png");
         private string MainMap = Path.Combine(MapsDir, "MainMap.txt");
+        private string Map1 = Path.Combine(MapsDir, "Map1.txt");
         private string Dirt_Main = Path.Combine(TilesDir, "Dirt_Main.png");
         private string Dirt_GrassSide = Path.Combine(TilesDir, "Dirt_GrassSide.png");
         private string Dirt_GrassBottomLeft = Path.Combine(TilesDir, "Dirt_GrassBottomLeft.png");
@@ -220,6 +224,7 @@ namespace OpenTKGame
             base.OnLoad();
             Console.WriteLine($"OpenGL Version: {GL.GetString(StringName.Version)}");
             GL.ClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+           
 
             //Create + Use main shader + no lighting shader
             shaderProgram = CreateLightingShader();
@@ -319,6 +324,11 @@ namespace OpenTKGame
                 }
             }
             CreateMap();
+            KRSTBootConsole.MarkAsLoaded("Systems");
+            KRSTBootConsole.MarkAsLoaded("Textures");
+            KRSTBootConsole.MarkAsLoaded("Shaders");
+            KRSTBootConsole.MarkAsLoaded("Maps");
+            KRSTBootConsole.MarkAsLoaded("Systems");
 
         }
 
@@ -638,32 +648,33 @@ namespace OpenTKGame
             {
                 if (k.IsKeyDown(Keys.W))
                 {
-                    if (CanMove(playerLeft, playerRight, playerTop, playerBottom, 0f, step))
+                    if (CanMove(playerLeft, playerRight, playerTop, playerBottom, 0f, step)) // TOP
                     {
                         movement.Y += step;
                     }
                 }
                 if (k.IsKeyDown(Keys.S))
                 {
-                    if (CanMove(playerLeft, playerRight, playerTop, playerBottom, 0f, -step))
+                    if (CanMove(playerLeft, playerRight, playerTop, playerBottom, 0f, -step)) // BOTTOM
                     {
                         movement.Y -= step;
                     }
                 }
                 if (k.IsKeyDown(Keys.A))
                 {
-                    if (CanMove(playerLeft, playerRight, playerTop, playerBottom, -step, 0f))
+                    if (CanMove(playerLeft, playerRight, playerTop, playerBottom, -step, 0f)) // LEFT
                     {
                         movement.X -= step;
                     }
                 }
                 if (k.IsKeyDown(Keys.D))
                 {
-                    if (CanMove(playerLeft, playerRight, playerTop, playerBottom, step, 0f))
+                    if (CanMove(playerLeft, playerRight, playerTop, playerBottom, step, 0f)) // RIGHT
                     {
                         movement.X += step;
                     }
                 }
+
 
                 //Apply movement to the internal bounding geometry
                 for (int i = 0; i < _vertices.Length; i += 3)
@@ -815,7 +826,7 @@ namespace OpenTKGame
             return (left, right, bottom, top);
         }
 
-        
+
         private bool CanMove(float playerLeft, float playerRight, float playerTop, float playerBottom, float dx, float dy)
         {
             float newLeft = playerLeft + dx;
@@ -823,11 +834,36 @@ namespace OpenTKGame
             float newBottom = playerBottom + dy;
             float newTop = playerTop + dy;
 
-            //Screen bounds
-            if (newLeft < -1f || newRight > 1f || newBottom < -1f || newTop > 1f)
+            // Left edge
+            if (newLeft < -1f)
                 return false;
 
-            // Squares
+            if (newRight > 1f)
+                return false;
+
+            if (newBottom < -1f)
+                return false;
+
+            if (newTop > 1f)
+            {
+                if (currentMap == "Main")
+                {
+                    _playerCenterY = -1f + playerCollisionScaleY * 0.04f; // tp player to the bottom
+                    _vertices[1] = _playerCenterY + 0.04f;
+                    _vertices[4] = _playerCenterY + 0.04f;
+                    _vertices[7] = _playerCenterY - 0.04f;
+                    _vertices[10] = _playerCenterY - 0.04f;
+                    LoadMap(Map1);
+                    currentMap = "Map1";
+                    Console.WriteLine($"Current map is {currentMap}");
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+
             foreach (var sq in squares)
             {
                 if (!sq.HasCollision)
@@ -845,7 +881,6 @@ namespace OpenTKGame
                     return false;
                 }
             }
-
 
             return true;
         }
@@ -1018,6 +1053,45 @@ namespace OpenTKGame
                 HalfH = halfH,
                 HasCollision = hasCollision
             };
+        }
+
+        public void LoadMap(string mapPath)
+        {
+            if (!File.Exists(mapPath))
+            {
+                Console.WriteLine($"Map file not found: {mapPath}");
+                return;
+            }
+
+            string[] lines = File.ReadAllLines(mapPath);
+
+            if (lines.Length != rows)
+            {
+                Console.WriteLine("Map file format mismatch: incorrect row count.");
+                return;
+            }
+
+            for (int y = 0; y < rows; y++)
+            {
+                string[] tokens = lines[y].Split(' ');
+                if (tokens.Length != cols)
+                {
+                    Console.WriteLine($"Map file format mismatch at row {y}: incorrect column count.");
+                    return;
+                }
+
+                for (int x = 0; x < cols; x++)
+                {
+                    float worldX = startX + x * tileWidth;
+                    float worldY = startY + y * tileHeight;
+
+                    mapArray[y][x] = tokens[x];
+                    positionArray[y][x] = $"{worldX:F2},{worldY:F2}";
+                }
+            }
+
+            CreateMap();
+            Console.WriteLine($"Successfully loaded map from {mapPath}");
         }
 
 
@@ -1203,12 +1277,24 @@ namespace OpenTKGame
             return prog;
         }
 
-
+        string path = null;
         private void SaveMap()
         {
+            if (currentMap == "Main")
+            {
+                path = MainMap;
+            }
+            else if(currentMap == "Map1")
+            {
+                path = Map1;
+            }
+            else
+            {
+                throw new Exception($"Map saving error most likely somewhere in the map path. Curr path {path}");
+            }
+            
             try
             {
-                string path = MainMap; // path to MainMap.txt
 
                 using (StreamWriter writer = new StreamWriter(path))
                 {
@@ -1233,6 +1319,8 @@ namespace OpenTKGame
         }
 
     }
+
+
 }
 
 
