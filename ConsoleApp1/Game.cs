@@ -324,11 +324,6 @@ namespace OpenTKGame
                 }
             }
             CreateMap();
-            KRSTBootConsole.MarkAsLoaded("Systems");
-            KRSTBootConsole.MarkAsLoaded("Textures");
-            KRSTBootConsole.MarkAsLoaded("Shaders");
-            KRSTBootConsole.MarkAsLoaded("Maps");
-            KRSTBootConsole.MarkAsLoaded("Systems");
 
         }
 
