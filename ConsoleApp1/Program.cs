@@ -1,25 +1,26 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using OpenTK.Windowing.Desktop;
-using OpenTKGame; // Assuming this namespace contains your Game class
+using OpenTKGame;
+using System.Threading;
 
-namespace KRSTEngine
+namespace OpenTK_Project
 {
     class Program
     {
         static void Main(string[] args)
         {
-            // --- Console Setup ---
             try
             {
-                // Added check for non-interactive sessions where size cannot be set
                 if (!Console.IsOutputRedirected && !Console.IsInputRedirected)
                 {
-                    Console.SetWindowSize(90, 35); // Increased height slightly for more info
-                    Console.SetBufferSize(90, 35);
+                    Console.SetWindowSize(Math.Min(100, Console.LargestWindowWidth), Math.Min(40, Console.LargestWindowHeight));
+                    Console.SetBufferSize(Math.Min(100, Console.LargestWindowWidth), Math.Min(4000, (int)short.MaxValue));
                 }
                 Console.Title = "KRST Engine Booting...";
             }
@@ -32,40 +33,22 @@ namespace KRSTEngine
                 Console.WriteLine($"[Warning] Console size might be too large for the screen. {ex.Message}");
             }
 
-            // --- Set Working Directory ---
             string exeDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            if (!string.IsNullOrEmpty(exeDirectory))
+            if (string.IsNullOrEmpty(exeDirectory))
             {
-                try
-                {
-                    Directory.SetCurrentDirectory(exeDirectory);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[Error] Failed to set working directory to '{exeDirectory}'. {ex.Message}");
-                    // Decide if you want to exit here or try to continue
-                    Console.ReadKey();
-                    return;
-                }
-            }
-            else
-            {
-                Console.WriteLine("[Error] Could not determine executable directory.");
+                Console.WriteLine("[Critical Error] Could not determine executable directory. Press any key to exit.");
                 Console.ReadKey();
                 return;
             }
 
-            // --- Run Boot Sequence ---
-            KRSTBootConsole.RunFullBootSequence();
+            KRSTBootConsole.RunFullBootSequence(exeDirectory);
 
-            // --- Launch Game ---
             Console.WriteLine("\nLaunching KRST Engine Window...");
-            Thread.Sleep(1500); // Pause before window opens
-            Console.Clear(); // Clear the boot info before showing the game window
+            Thread.Sleep(1500);
+            Console.Clear();
 
             using (Game game = new Game(900, 720, "KRST Engine"))
             {
-                // Optional: Pass any loaded configuration or assets from boot sequence to the game constructor if needed
                 game.Run();
             }
 
@@ -76,7 +59,6 @@ namespace KRSTEngine
 
     static class KRSTBootConsole
     {
-        // --- Colors ---
         static ConsoleColor TitleColor = ConsoleColor.DarkCyan;
         static ConsoleColor InfoColor = ConsoleColor.Gray;
         static ConsoleColor SystemColor = ConsoleColor.Cyan;
@@ -89,60 +71,66 @@ namespace KRSTEngine
         static ConsoleColor SuccessColor = ConsoleColor.Green;
         static ConsoleColor HighlightColor = ConsoleColor.White;
         static ConsoleColor MutedColor = ConsoleColor.DarkGray;
+        static ConsoleColor AccentColor1 = ConsoleColor.Blue;
 
-        // --- Asset Lists ---
         static List<string> systems = new List<string>();
         static List<string> shaders = new List<string>();
         static List<string> textures = new List<string>();
         static List<string> maps = new List<string>();
 
-        // --- Animation Settings ---
-        const int TypewriterDelayMs = 1;
-        const int ProgressBarWidth = 40;
-        const int StepDelayMs = 100; // General delay between steps
-        const int LoadingSimDelayMs = 50; // Delay per item in loading simulation
+        const int TypewriterDelayMs = 0;
+        const int ProgressBarWidth = 45;
+        const int StepDelayMs = 80;
+        const int LoadingSimDelayMs = 30;
 
-        public static void RunFullBootSequence()
+        static string projectRootPath;
+        static string exePath;
+        static string projectName = "KRST Engine 2D";
+
+        public static void RunFullBootSequence(string executablePath)
         {
             Console.CursorVisible = false;
+            exePath = executablePath;
+            projectRootPath = Path.GetFullPath(Path.Combine(exePath, "..", "..", ".."));
+            projectName = Path.GetFileName(projectRootPath);
 
             AnimatedTitleBar();
-            Console.Beep(659, 125); // E5
+            Console.Beep(659, 100);
             Thread.Sleep(StepDelayMs);
 
             AnimateAsciiWithSpinner();
-            Console.Beep(783, 125); // G5
+            Console.Beep(783, 100);
             Thread.Sleep(StepDelayMs);
 
             Console.Clear();
             DisplaySystemInfo();
-            Thread.Sleep(StepDelayMs * 5); // Pause after system info
+            Thread.Sleep(StepDelayMs * 3);
 
-            LogSeparator("Asset Discovery");
-            InitializeDynamicLists(); // Find assets
+            LogSeparator("Asset Discovery & Initialization", AccentColor1);
+            InitializeDynamicLists();
             Thread.Sleep(StepDelayMs * 2);
 
-            LogSeparator("Loading Core Systems");
-            LogItems(systems, SystemColor, "[SYSTEM ]");
+            LogSeparator("Loading Core Systems", SystemColor);
+            LogItems(systems, SystemColor, "[SYSTEM ]", false);
             SimulateLoadingWithProgressBar("Systems", systems.Count, SystemColor);
-            Console.Beep(523, 80); // C5
+            Console.Beep(523, 70);
 
-            LogSeparator("Compiling Shaders");
+            LogSeparator("Compiling Shaders", ShaderColor);
             LogItems(shaders, ShaderColor, "[SHADER ]");
             SimulateLoadingWithProgressBar("Shaders", shaders.Count, ShaderColor);
-            Console.Beep(587, 80); // D5
+            Console.Beep(587, 70);
 
-            LogSeparator("Loading Textures");
+            LogSeparator("Loading Textures", TextureColor);
             LogItems(textures, TextureColor, "[TEXTURE]");
             SimulateLoadingWithProgressBar("Textures", textures.Count, TextureColor);
-            Console.Beep(659, 80); // E5
+            Console.Beep(659, 70);
 
-            LogSeparator("Loading Maps");
+            LogSeparator("Loading Maps", MapColor);
             LogItems(maps, MapColor, "[MAP    ]");
             SimulateLoadingWithProgressBar("Maps", maps.Count, MapColor);
-            Console.Beep(783, 150); // G5 long
+            Console.Beep(783, 120);
 
-            LogSeparator("Initialization Complete");
+            LogSeparator("Finalizing Setup", SuccessColor);
             Console.ForegroundColor = SuccessColor; Console.WriteLine("\n [ OK ] All systems initialized successfully.\n");
             Console.ResetColor();
             Thread.Sleep(StepDelayMs);
@@ -153,60 +141,67 @@ namespace KRSTEngine
             Console.CursorVisible = true;
         }
 
-        static void LogSeparator(string title)
+        static void LogSeparator(string title, ConsoleColor color)
         {
-            Console.ForegroundColor = MutedColor;
-            int paddingLength = Math.Max(0, Console.BufferWidth - title.Length - 6);
-            Console.WriteLine($"\n--- {title} {"-".PadRight(paddingLength, '-')} ");
+            Console.WriteLine();
+            Console.ForegroundColor = color;
+            int paddingLength = Math.Max(0, (Console.BufferWidth - title.Length - 2) / 2);
+            string line = new string('═', paddingLength);
+            Console.WriteLine($"{line} {title} {line}".Substring(0, Math.Min(Console.BufferWidth - 1, $"{line} {title} {line}".Length)));
             Console.ResetColor();
+            Console.WriteLine();
             Thread.Sleep(StepDelayMs / 2);
         }
 
         static void InitializeDynamicLists()
         {
             Console.ForegroundColor = InfoColor;
-            Console.WriteLine(" Searching for assets in subdirectories...");
+            Console.WriteLine($" Searching for assets in project: '{projectName}' (Path: {projectRootPath})");
             Console.ResetColor();
             Thread.Sleep(StepDelayMs);
 
-            LoadFiles("Systems", "*.txt", systems, SystemColor);
-            LoadFiles("Shaders", "*.glsl", shaders, ShaderColor);
-            LoadFiles("Textures", "*.png", textures, TextureColor);
-            LoadFiles("Maps", "*.txt", maps, MapColor); // Assuming maps are txt for now
+            string shadersDir = Path.Combine(exePath, "Shaders");
+            string texturesProjectDir = Path.Combine(projectRootPath, "ConsoleApp1", "Textures");
+            string mapsProjectDir = Path.Combine(projectRootPath, "ConsoleApp1", "Maps");
+            string systemsProjectDir = Path.Combine(projectRootPath, "ConsoleApp1");
+
+            LoadFiles("Core Systems", systemsProjectDir, "*.cs", systems, SystemColor, false);
+            LoadFiles("Shaders", shadersDir, "*.glsl", shaders, ShaderColor, false);
+            LoadFiles("Textures", texturesProjectDir, "*.png", textures, TextureColor, true);
+            LoadFiles("Maps", mapsProjectDir, "*.txt", maps, MapColor, false);
         }
 
-        static void LoadFiles(string dirName, string searchPattern, List<string> list, ConsoleColor color)
+        static void LoadFiles(string dirDisplayName, string directoryPath, string searchPattern, List<string> list, ConsoleColor color, bool recursive)
         {
             Console.ForegroundColor = color;
-            Console.Write($"   -> Checking '{dirName}' directory... ");
+            Console.Write($"   -> Scanning '{dirDisplayName}' ({Path.GetFileName(directoryPath)})... ");
             try
             {
-                if (!Directory.Exists(dirName))
+                if (!Directory.Exists(directoryPath))
                 {
                     Console.ForegroundColor = WarningColor;
-                    Console.WriteLine($"[NOT FOUND] Creating '{dirName}' directory.");
-                    Directory.CreateDirectory(dirName);
+                    Console.WriteLine($"[NOT FOUND] Directory '{directoryPath}' does not exist.");
                     Console.ResetColor();
-                    return; // No files to add yet
+                    return;
                 }
 
-                var files = Directory.GetFiles(dirName, searchPattern);
-                list.AddRange(files);
+                var files = Directory.GetFiles(directoryPath, searchPattern, recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
+                list.AddRange(files.Select(f => Path.GetFileName(f)));
+
                 Console.ForegroundColor = SuccessColor;
                 Console.WriteLine($"[ OK ] Found {files.Length} file(s).");
             }
             catch (Exception ex)
             {
                 Console.ForegroundColor = ErrorColor;
-                Console.WriteLine($"[ERROR] Could not access/create directory '{dirName}'. {ex.Message}");
+                Console.WriteLine($"[ERROR] Could not access directory '{directoryPath}'. {ex.Message.Split('\n')[0]}");
             }
             finally
             {
                 Console.ResetColor();
-                Thread.Sleep(StepDelayMs / 2); 
+                Thread.Sleep(StepDelayMs / 3);
             }
         }
-
 
         static void AnimatedTitleBar()
         {
@@ -223,20 +218,22 @@ namespace KRSTEngine
 
             Console.ForegroundColor = TitleColor;
             int startLine = Console.CursorTop;
+            if (startLine + titleLines.Length >= Console.BufferHeight) Console.Clear();
+            startLine = Console.CursorTop;
+
             for (int line = 0; line < titleLines.Length; line++)
             {
                 Console.SetCursorPosition(0, startLine + line);
-                foreach (char c in titleLines[line])
+                string currentLine = titleLines[line];
+                if (currentLine.Length >= Console.BufferWidth)
                 {
-                    Console.Write(c);
-                    if (!char.IsWhiteSpace(c)) // Only delay for visible characters
-                        Thread.Sleep(TypewriterDelayMs);
+                    currentLine = currentLine.Substring(0, Console.BufferWidth - 1);
                 }
-                // Ensure we move to the next line even if the loop finishes early
-                if (line < titleLines.Length - 1) Console.WriteLine();
+                Console.Write(currentLine);
+                Thread.Sleep(TypewriterDelayMs * 5);
             }
             Console.ResetColor();
-            Console.WriteLine("\n"); // Add space after title
+            Console.WriteLine("\n");
         }
 
         static void AnimateAsciiWithSpinner()
@@ -268,62 +265,67 @@ namespace KRSTEngine
           |        |KRST   |
          / \       ---------
 "
-             };
-            char[] spinner = { '|', '/', '-', '\\' };
+            };
+            char[] spinnerChars = { '|', '/', '-', '\\', '*', '+' };
             int spinnerIndex = 0;
             int startLine = Console.CursorTop;
-            // Estimate number of lines used by the animation + spinner line
-            int linesToClear = frames[0].Split('\n').Length + 1;
+            int frameHeight = frames[0].Split('\n').Length;
 
-            for (int i = 0; i < frames.Length * 3; i++) // Loop longer for more spinning
+            if (startLine + frameHeight + 1 >= Console.BufferHeight) Console.Clear();
+            startLine = Console.CursorTop;
+
+            for (int i = 0; i < frames.Length * 2; i++)
             {
-                // Clear previous frame area
                 Console.SetCursorPosition(0, startLine);
-                for (int k = 0; k < linesToClear; k++) // Clear the calculated number of lines
+                string currentFrame = frames[i % frames.Length];
+                using (StringReader reader = new StringReader(currentFrame))
                 {
-                    // Use the corrected way to generate a blank line
-                    Console.WriteLine(new string(' ', Console.BufferWidth > 0 ? Console.BufferWidth - 1 : 1));
+                    string line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        Console.WriteLine(line.PadRight(Console.BufferWidth - 1));
+                    }
                 }
-                Console.SetCursorPosition(0, startLine); // Reset cursor to the top of animation area
 
-
-                Console.ForegroundColor = HighlightColor;
-                Console.WriteLine(frames[i % frames.Length]); // Cycle through frames
                 Console.ForegroundColor = InfoColor;
-                Console.Write($" Initializing Core... {spinner[spinnerIndex]}"); // Write spinner on its own line
+                Console.Write($" Initializing Core... {spinnerChars[spinnerIndex]}".PadRight(Console.BufferWidth - 1));
 
-                spinnerIndex = (spinnerIndex + 1) % spinner.Length;
+                spinnerIndex = (spinnerIndex + 1) % spinnerChars.Length;
                 Console.ResetColor();
-                Thread.Sleep(150); // Animation speed
+                Thread.Sleep(120);
             }
-
-            // Clear the animation area finally
             Console.SetCursorPosition(0, startLine);
-            for (int k = 0; k < linesToClear; k++) // Clear the calculated number of lines
-            {
-                // Use the corrected way to generate a blank line
-                Console.WriteLine(new string(' ', Console.BufferWidth > 0 ? Console.BufferWidth - 1 : 1));
-            }
-            Console.SetCursorPosition(0, startLine); // Reset cursor
+            for (int i = 0; i < frameHeight + 1; ++i) Console.WriteLine(new string(' ', Console.BufferWidth - 1));
+            Console.SetCursorPosition(0, startLine);
         }
-
 
         static void DisplaySystemInfo()
         {
-            LogSeparator("System Information");
+            LogSeparator("System & Environment", AccentColor1);
             try
             {
                 Console.ForegroundColor = InfoColor;
-                Console.WriteLine($" OS Version:      {Environment.OSVersion}");
-                Console.WriteLine($" 64-bit OS:       {Environment.Is64BitOperatingSystem}");
+                string GetBuildConfiguration()
+                {
+#if DEBUG
+                    return "DEBUG";
+#else
+                    return "RELEASE";
+#endif
+                }
+
+                Console.WriteLine($" OS Version:      {Environment.OSVersion.VersionString.Split(new[] { "Microsoft " }, StringSplitOptions.None).LastOrDefault()}");
+                Console.WriteLine($" Platform:        {(Environment.Is64BitOperatingSystem ? "64-bit" : "32-bit")} OS, {(Environment.Is64BitProcess ? "64-bit" : "32-bit")} Process");
                 Console.WriteLine($" Processor Count: {Environment.ProcessorCount}");
-                // Getting total physical memory reliably requires platform-specific code or libraries.
-                // Environment.WorkingSet gives memory used by this process, not total system RAM.
                 Console.WriteLine($" Process Memory:  {(Environment.WorkingSet / 1024.0 / 1024.0):F2} MB");
                 Console.WriteLine($" CLR Version:     {Environment.Version}");
                 Console.WriteLine($" Machine Name:    {Environment.MachineName}");
                 Console.WriteLine($" User Name:       {Environment.UserName}");
-                Console.WriteLine($" Current Dir:     {Environment.CurrentDirectory}");
+                Console.WriteLine($" Project Path:    {projectRootPath}");
+                Console.WriteLine($" Executable Path: {exePath}");
+                Console.ForegroundColor = HighlightColor;
+                Console.WriteLine($" Build Mode:      {GetBuildConfiguration()}");
+
                 Console.ResetColor();
             }
             catch (Exception ex)
@@ -334,8 +336,7 @@ namespace KRSTEngine
             }
         }
 
-
-        static void LogItems(List<string> items, ConsoleColor color, string tag)
+        static void LogItems(List<string> items, ConsoleColor color, string tag, bool showFullPath = true)
         {
             if (items.Count == 0)
             {
@@ -346,14 +347,21 @@ namespace KRSTEngine
             }
 
             Console.ForegroundColor = color;
-            foreach (var item in items)
+            int maxItemsToShow = 10;
+            foreach (var item in items.Take(maxItemsToShow))
             {
-                // Shorten long paths if needed
-                string displayPath = item.Length > Console.BufferWidth - tag.Length - 5
-                    ? "..." + item.Substring(item.Length - (Console.BufferWidth - tag.Length - 8))
-                    : item;
-                Console.WriteLine($" {tag} -> {Path.GetFileName(displayPath)}"); // Just show filename
-                Thread.Sleep(10); // Tiny delay per item log
+                string displayPath = showFullPath ? item : Path.GetFileName(item);
+                if (displayPath.Length > Console.BufferWidth - tag.Length - 5)
+                {
+                    displayPath = "..." + displayPath.Substring(Math.Max(0, displayPath.Length - (Console.BufferWidth - tag.Length - 8)));
+                }
+                Console.WriteLine($" {tag} -> {displayPath}");
+                Thread.Sleep(5);
+            }
+            if (items.Count > maxItemsToShow)
+            {
+                Console.ForegroundColor = MutedColor;
+                Console.WriteLine($" {tag} -> ...and {items.Count - maxItemsToShow} more.");
             }
             Console.ResetColor();
         }
@@ -362,7 +370,6 @@ namespace KRSTEngine
         {
             if (totalItems == 0)
             {
-                // Skip progress bar if nothing to load
                 Console.ForegroundColor = MutedColor;
                 Console.WriteLine($" [SKIP] No {type} to load.");
                 Console.ResetColor();
@@ -372,65 +379,74 @@ namespace KRSTEngine
 
             Console.ForegroundColor = color;
             Console.Write($" [LOAD] {type,-10} ");
-            int cursorLeft = Console.CursorLeft;
-            int cursorTop = Console.CursorTop;
+            int barLeft = Console.CursorLeft;
+            int barTop = Console.CursorTop;
 
             for (int i = 0; i <= totalItems; i++)
             {
                 float progress = totalItems == 0 ? 1.0f : (float)i / totalItems;
-                DrawProgressBar(progress, ProgressBarWidth, cursorLeft, cursorTop, ProgressColor);
-                // Simulate work being done per item
-                Thread.Sleep(LoadingSimDelayMs / (totalItems / 10 + 1)); // Faster progress for more items
+                DrawProgressBar(progress, ProgressBarWidth, barLeft, barTop, ProgressColor, color);
+                Thread.Sleep(Math.Max(5, LoadingSimDelayMs / (totalItems / 5 + 1)));
             }
 
-            Console.SetCursorPosition(cursorLeft + ProgressBarWidth + 8, cursorTop); // Position after progress bar + percentage
+            Console.SetCursorPosition(barLeft + ProgressBarWidth + 2 + 6, barTop);
             Console.ForegroundColor = SuccessColor;
             Console.WriteLine("[DONE]");
             Console.ResetColor();
             Thread.Sleep(StepDelayMs / 2);
         }
 
-        static void DrawProgressBar(float progress, int width, int left, int top, ConsoleColor color)
+        static void DrawProgressBar(float progress, int width, int left, int top, ConsoleColor progressFillColor, ConsoleColor barFrameColor)
         {
             Console.SetCursorPosition(left, top);
-            Console.ForegroundColor = color;
+            Console.ForegroundColor = barFrameColor;
             Console.Write("[");
+
+            Console.ForegroundColor = progressFillColor;
             int filledWidth = (int)(progress * width);
-            Console.Write(new string('█', filledWidth)); // Use block character '█'
-            Console.Write(new string('-', width - filledWidth)); // Use '-' for empty part
+            Console.Write(new string('█', filledWidth));
+
+            Console.ForegroundColor = MutedColor;
+            Console.Write(new string('░', width - filledWidth));
+
+            Console.ForegroundColor = barFrameColor;
             Console.Write("]");
-            // Display percentage - ensure it fits and overwrite previous %
+
+            Console.ForegroundColor = HighlightColor;
             Console.Write($" {(int)(progress * 100),3}% ");
             Console.ResetColor();
         }
 
         static void DisplayEngineFeatures()
         {
-            Console.ForegroundColor = HighlightColor; Console.WriteLine(" KRST ENGINE FEATURES:");
+            Console.ForegroundColor = HighlightColor; Console.WriteLine("\n KRST ENGINE FEATURES:");
             Console.ForegroundColor = InfoColor;
-            Console.WriteLine("  - Map Editor [F1], Contextual Placement, Numpad Selection, Quick Save [F9]");
-            Console.WriteLine("  - Disable/Enable lighting [L]");
-            // Add any other key features here
-            Console.WriteLine("  - Basic Console Boot Sequence");
-            Console.WriteLine();
+            Console.WriteLine("  - In-Game Map Editor [F1]");
+            Console.WriteLine("    - Contextual Tile Placement (Left Mouse)");
+            Console.WriteLine("    - Tile Deletion (Middle Mouse)");
+            Console.WriteLine("    - Object Palette Selection (Right Mouse + Numpad)");
+            Console.WriteLine("  - Quick Save Map [F9]");
+            Console.WriteLine("  - Toggle Lighting Effects [L]");
+            Console.WriteLine("  - Player Animations (Idle, Walk, Reload [R])");
+            Console.WriteLine("  - Dynamic Console Boot Sequence");
             Console.ResetColor();
             Thread.Sleep(StepDelayMs);
         }
 
         static void DisplayFooter()
         {
+            Console.WriteLine();
             Console.ForegroundColor = MutedColor;
-            Console.WriteLine("══════════════════════════════════════════════════════════════════════════════════");
+            Console.WriteLine("═════════════════════════════════════════════════════════════════════════════════════════".Substring(0, Math.Min(Console.BufferWidth - 1, 80)));
             Console.ForegroundColor = SystemColor;
-            Console.WriteLine("                            KRST ENGINE");
+            Console.WriteLine($"                            KRST ENGINE ({projectName})");
             Console.ForegroundColor = InfoColor;
             Console.WriteLine("                       Powering 2D Experiences");
             Console.WriteLine();
             Console.ForegroundColor = MutedColor;
-            Console.WriteLine($"             @ {DateTime.Now.Year} KRST Interactive. All rights reserved."); // Use current year
+            Console.WriteLine($"             © {DateTime.Now.Year} KRST Interactive. All rights reserved.");
             Console.WriteLine("                Designed & Engineered by Kryskata");
-            Console.ForegroundColor = MutedColor;
-            Console.WriteLine("══════════════════════════════════════════════════════════════════════════════════");
+            Console.WriteLine("═════════════════════════════════════════════════════════════════════════════════════════".Substring(0, Math.Min(Console.BufferWidth - 1, 80)));
             Console.ResetColor();
         }
     }
